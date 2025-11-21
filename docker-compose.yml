@@ -1,33 +1,34 @@
+
 services:
+  # Next.js Application (uses NODE_ENV from .env)
   web:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "${PORT:-4200}:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-    env_file:
-      - .env
+      target: runner
+      args:
+        - NODE_ENV=${NODE_ENV:-production}
+    container_name: nextjs-web
     restart: unless-stopped
-
-  web-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps
     ports:
-      - "${PORT:-4200}:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/apps/web/node_modules
-      - /app/apps/web/.next
+      - "${PORT:-4200}:${PORT:-4200}"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-4200}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4200}
     env_file:
       - .env
-    command: pnpm --filter web dev
-    profiles:
-      - dev
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:${PORT:-4200}', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+
+networks:
+  app-network:
+    driver: bridge
+

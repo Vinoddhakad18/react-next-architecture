@@ -1,0 +1,148 @@
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 30B 0.0s
+#1 transferring dockerfile: 32B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load .dockerignore
+#2 transferring context: 35B 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/node:18-alpine
+#3 DONE 7.2s
+
+#4 [base 1/2] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 8.51kB 0.1s done
+#5 DONE 0.1s
+
+#6 [base 2/2] RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
+#6 1.015 Preparing pnpm@8.15.0 for immediate activation...
+#6 DONE 7.8s
+
+#7 [deps 1/6] WORKDIR /app
+#7 DONE 0.1s
+
+#8 [runner 2/7] RUN addgroup --system --gid 1001 nodejs
+#8 ...
+
+#9 [deps 2/6] COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
+#9 DONE 0.2s
+
+#10 [deps 3/6] COPY apps/web/package.json ./apps/web/package.json
+#10 DONE 0.1s
+
+#11 [deps 4/6] COPY packages/ui/package.json ./packages/ui/package.json
+#11 DONE 0.1s
+
+#12 [deps 5/6] COPY packages/utils/package.json ./packages/utils/package.json
+#12 DONE 0.1s
+
+#8 [runner 2/7] RUN addgroup --system --gid 1001 nodejs
+#8 DONE 0.6s
+
+#13 [deps 6/6] RUN pnpm install --frozen-lockfile
+#13 ...
+
+#14 [runner 3/7] RUN adduser --system --uid 1001 nextjs
+#14 DONE 0.8s
+
+#13 [deps 6/6] RUN pnpm install --frozen-lockfile
+#13 3.381 Scope: all 4 workspace projects
+#13 3.996 Lockfile is up to date, resolution step is skipped
+#13 4.290 Progress: resolved 1, reused 0, downloaded 0, added 0
+#13 4.770 Packages: +358
+#13 4.770 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#13 5.287 Progress: resolved 358, reused 0, downloaded 0, added 0
+#13 6.291 Progress: resolved 358, reused 0, downloaded 11, added 10
+#13 6.533 
+#13 6.533    ╭───────────────────────────────────────────────────────────────────╮
+#13 6.533    │                                                                   │
+#13 6.533    │                Update available! 8.15.0 → 10.23.0.                │
+#13 6.533    │   Changelog: https://github.com/pnpm/pnpm/releases/tag/v10.23.0   │
+#13 6.533    │     Run "corepack prepare pnpm@10.23.0 --activate" to update.     │
+#13 6.533    │                                                                   │
+#13 6.533    │      Follow @pnpmjs for updates: https://twitter.com/pnpmjs       │
+#13 6.533    │                                                                   │
+#13 6.533    ╰───────────────────────────────────────────────────────────────────╯
+#13 6.533 
+#13 7.289 Progress: resolved 358, reused 0, downloaded 29, added 28
+#13 8.292 Progress: resolved 358, reused 0, downloaded 51, added 51
+#13 9.296 Progress: resolved 358, reused 0, downloaded 80, added 81
+#13 10.30 Progress: resolved 358, reused 0, downloaded 131, added 132
+#13 11.31 Progress: resolved 358, reused 0, downloaded 147, added 147
+#13 12.31 Progress: resolved 358, reused 0, downloaded 185, added 186
+#13 13.34 Progress: resolved 358, reused 0, downloaded 228, added 228
+#13 14.34 Progress: resolved 358, reused 0, downloaded 263, added 263
+#13 15.34 Progress: resolved 358, reused 0, downloaded 307, added 308
+#13 16.34 Progress: resolved 358, reused 0, downloaded 353, added 354
+#13 17.34 Progress: resolved 358, reused 0, downloaded 354, added 355
+#13 29.97 Progress: resolved 358, reused 0, downloaded 355, added 355
+#13 30.97 Progress: resolved 358, reused 0, downloaded 355, added 356
+#13 31.97 Progress: resolved 358, reused 0, downloaded 356, added 357
+#13 36.24 Progress: resolved 358, reused 0, downloaded 357, added 357
+#13 36.24 Progress: resolved 358, reused 0, downloaded 357, added 358, done
+#13 36.87 .../node_modules/unrs-resolver postinstall$ napi-postinstall unrs-resolver 1.11.1 check
+#13 37.12 .../node_modules/unrs-resolver postinstall: Done
+#13 37.17 .../sharp@0.33.5/node_modules/sharp install$ node install/check
+#13 37.37 .../sharp@0.33.5/node_modules/sharp install: Done
+#13 37.90 
+#13 37.90 devDependencies:
+#13 37.90 + typescript 5.9.3
+#13 37.90 
+#13 38.28 Done in 37.3s
+#13 DONE 39.2s
+
+#15 [builder 2/7] COPY --from=deps /app/node_modules ./node_modules
+#15 DONE 11.7s
+
+#16 [builder 3/7] COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+#16 DONE 0.1s
+
+#17 [builder 4/7] COPY --from=deps /app/packages/ui/node_modules ./packages/ui/node_modules
+#17 DONE 0.1s
+
+#18 [builder 5/7] COPY --from=deps /app/packages/utils/node_modules ./packages/utils/node_modules
+#18 DONE 0.1s
+
+#19 [builder 6/7] COPY . .
+#19 DONE 0.2s
+
+#20 [builder 7/7] RUN pnpm --filter web build
+#20 2.695 
+#20 2.695 > web@1.0.0 build /app/apps/web
+#20 2.695 > next build
+#20 2.695 
+#20 2.825 node:internal/modules/cjs/loader:1143
+#20 2.825   throw err;
+#20 2.825   ^
+#20 2.825 
+#20 2.825 Error: Cannot find module '/app/apps/web/node_modules/next/dist/bin/next'
+#20 2.825     at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+#20 2.825     at Module._load (node:internal/modules/cjs/loader:981:27)
+#20 2.825     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:128:12)
+#20 2.825     at node:internal/main/run_main_module:28:49 {
+#20 2.825   code: 'MODULE_NOT_FOUND',
+#20 2.825   requireStack: []
+#20 2.825 }
+#20 2.825 
+#20 2.825 Node.js v18.20.8
+#20 2.841 /app/apps/web:
+#20 2.841  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@1.0.0 build: `next build`
+#20 2.841 Exit status 1
+#20 ERROR: executor failed running [/bin/sh -c pnpm --filter web build]: exit code: 1
+------
+ > [builder 7/7] RUN pnpm --filter web build:
+#20 2.825     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:128:12)
+#20 2.825     at node:internal/main/run_main_module:28:49 {
+#20 2.825   code: 'MODULE_NOT_FOUND',
+#20 2.825   requireStack: []
+#20 2.825 }
+#20 2.825 
+#20 2.825 Node.js v18.20.8
+#20 2.841 /app/apps/web:
+#20 2.841  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@1.0.0 build: `next build`
+#20 2.841 Exit status 1
+------
+failed to solve: executor failed running [/bin/sh -c pnpm --filter web build]: exit code: 1

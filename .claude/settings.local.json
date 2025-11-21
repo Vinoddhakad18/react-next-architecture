@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"d:\\Project\\bitbucket\\react-next-architecture\\.dockerignore\")",
+      "Bash(\"d:\\Project\\bitbucket\\react-next-architecture\\Dockerfile\")",
+      "Bash(\"d:\\Project\\bitbucket\\react-next-architecture\\docker-compose.yml\")",
+      "Bash(docker-compose up:*)",
+      "Bash(pnpm install:*)",
+      "Bash(corepack enable:*)",
+      "Bash(corepack prepare:*)",
+      "Bash(npm install:*)",
+      "Bash(test:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(tee:*)",
+      "Bash(cat:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(pnpm build:*)",
+      "Bash(apps/web/public/README.md)",
+      "Bash(docker logs:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

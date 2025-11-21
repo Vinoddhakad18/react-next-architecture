@@ -1,0 +1,1 @@
+error during connect: This error may indicate that the docker daemon is not running.: Get "http://%!F(MISSING)%!F(MISSING).%!F(MISSING)pipe%!F(MISSING)docker_engine/v1.24/version": open //./pipe/docker_engine: The system cannot find the file specified.: driver not connecting
