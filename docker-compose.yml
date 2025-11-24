@@ -1,32 +1,42 @@
 
 services:
-  # Next.js Application (uses NODE_ENV from .env)
+  # Next.js Application with hot-reload support
   web:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runner
-      args:
-        - NODE_ENV=${NODE_ENV:-production}
+      target: development
     container_name: nextjs-web
     restart: unless-stopped
     ports:
       - "${PORT:-4200}:${PORT:-4200}"
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=development
       - PORT=${PORT:-4200}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4200}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
     env_file:
       - .env
+    volumes:
+      # Mount source code for hot-reload
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/public:/app/apps/web/public
+      - ./packages/ui/src:/app/packages/ui/src
+      - ./packages/utils/src:/app/packages/utils/src
+      # Mount config files
+      - ./apps/web/next.config.js:/app/apps/web/next.config.js:ro
+      - ./apps/web/tsconfig.json:/app/apps/web/tsconfig.json:ro
+      - ./apps/web/tailwind.config.ts:/app/apps/web/tailwind.config.ts:ro
+      - ./apps/web/postcss.config.js:/app/apps/web/postcss.config.js:ro
+      # Prevent overwriting node_modules (anonymous volumes)
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
+      - /app/packages/ui/node_modules
+      - /app/packages/utils/node_modules
     networks:
       - app-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:${PORT:-4200}', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
 
 networks:
   app-network:

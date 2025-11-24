@@ -21,15 +21,15 @@ export const authService = {
    * Login with email and password
    */
   async login(credentials: LoginRequest) {
-    const response = await apiClient.post<LoginResponse, LoginRequest>(
+    const response = await apiClient.post<{ success: boolean; message: string; data: LoginResponse }, LoginRequest>(
       API_ENDPOINTS.AUTH.LOGIN,
       credentials
     );
 
-    if (response.success && response.data.accessToken) {
-      this.setToken(response.data.accessToken);
-      if (response.data.refreshToken) {
-        this.setRefreshToken(response.data.refreshToken);
+    if (response.success && response.data?.data?.accessToken) {
+      this.setToken(response.data.data.accessToken);
+      if (response.data.data.refreshToken) {
+        this.setRefreshToken(response.data.data.refreshToken);
       }
     }
 
@@ -76,15 +76,15 @@ export const authService = {
       return { data: null, error: { message: 'No refresh token', status: 401 }, success: false };
     }
 
-    const response = await apiClient.post<RefreshTokenResponse, RefreshTokenRequest>(
+    const response = await apiClient.post<{ success: boolean; message: string; data: RefreshTokenResponse }, RefreshTokenRequest>(
       API_ENDPOINTS.AUTH.REFRESH,
       { refreshToken }
     );
 
-    if (response.success && response.data.accessToken) {
-      this.setToken(response.data.accessToken);
-      if (response.data.refreshToken) {
-        this.setRefreshToken(response.data.refreshToken);
+    if (response.success && response.data?.data?.accessToken) {
+      this.setToken(response.data.data.accessToken);
+      if (response.data.data.refreshToken) {
+        this.setRefreshToken(response.data.data.refreshToken);
       }
     }
 

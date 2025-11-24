@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { authService } from '@/services/auth.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,9 +46,8 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
+    // Check authentication using auth service
+    if (!authService.isAuthenticated()) {
       router.push('/admin/login');
     } else {
       setIsLoading(false);
