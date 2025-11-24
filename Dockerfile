@@ -4,7 +4,7 @@
 # ===================================
 
 # Base stage with Node.js and pnpm
-FROM node:18-alpine AS base
+FROM node:24-alpine AS base
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 ENV PNPM_HOME=/usr/local/bin
 
@@ -47,6 +47,37 @@ WORKDIR /app/apps/web
 RUN pnpm build
 WORKDIR /app
 
+# Development stage - For hot-reload
+FROM base AS development
+WORKDIR /app
+
+# Copy workspace files
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
+
+# Copy package.json files from all workspaces
+COPY apps/web/package.json ./apps/web/package.json
+COPY packages/ui/package.json ./packages/ui/package.json
+COPY packages/utils/package.json ./packages/utils/package.json
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Set environment for development
+ENV NODE_ENV=development
+ENV PORT=4200
+ENV HOSTNAME="0.0.0.0"
+ENV WATCHPACK_POLLING=true
+ENV CHOKIDAR_USEPOLLING=true
+
+# Expose port
+EXPOSE 4200
+
+# Set working directory
+WORKDIR /app/apps/web
+
+# Start development server
+CMD ["pnpm", "dev"]
+
 # Runner stage - Production image
 FROM base AS runner
 WORKDIR /app
@@ -65,8 +96,10 @@ ENV HOSTNAME="0.0.0.0"
 
 # Copy necessary files
 COPY --from=builder /app/apps/web/public ./apps/web/public
-COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
 
 # Set ownership
 RUN chown -R nextjs:nodejs /app
@@ -77,9 +110,8 @@ USER nextjs
 # Expose port
 EXPOSE 4200
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:4200/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" || exit 1
+# Set working directory
+WORKDIR /app/apps/web
 
 # Start the application
-CMD ["node", "apps/web/server.js"]
+CMD ["pnpm", "start"]

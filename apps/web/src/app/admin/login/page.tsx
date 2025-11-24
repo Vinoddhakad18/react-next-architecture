@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-
-export const dynamic = 'force-dynamic';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function AdminLogin() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -19,17 +18,39 @@ export default function AdminLogin() {
     setIsLoading(true);
     setError('');
 
-    // Simulate login - replace with your actual authentication logic
-    setTimeout(() => {
-      if (formData.email && formData.password) {
-        // Store auth token or session
-        localStorage.setItem('adminToken', 'demo-token');
-        router.push('/admin/dashboard');
-      } else {
-        setError('Please fill in all fields');
+    try {
+      const response = await fetch('http://localhost:3000/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid credentials');
       }
+
+      // Store token if returned
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+      if (data.accessToken) {
+        localStorage.setItem('authToken', data.accessToken);
+      }
+
+      const redirect = searchParams?.get('redirect') || '/admin/dashboard';
+      router.push(redirect);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -75,7 +96,7 @@ export default function AdminLogin() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="block w-full pl-10 pr-3 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                  placeholder="admin@example.com"
+                  placeholder="email ids"
                   required
                 />
               </div>
@@ -104,16 +125,6 @@ export default function AdminLogin() {
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-white/20 bg-white/10 text-purple-500 focus:ring-purple-500"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-300">
-                  Remember me
-                </label>
-              </div>
               <a href="#" className="text-sm text-purple-400 hover:text-purple-300 transition">
                 Forgot password?
               </a>
@@ -144,13 +155,6 @@ export default function AdminLogin() {
               Protected by advanced security measures
             </p>
           </div>
-        </div>
-
-        {/* Demo credentials hint */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-slate-400">
-            Demo: Use any email and password to login
-          </p>
         </div>
       </div>
     </div>

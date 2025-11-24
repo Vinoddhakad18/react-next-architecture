@@ -1,16 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function Header() {
-  const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    router.push('/admin/login');
+    // TODO: Implement logout functionality
+    console.log('Logout clicked');
   };
 
   const notifications = [
@@ -93,7 +91,7 @@ export default function Header() {
               className="flex items-center space-x-2 p-2 hover:bg-slate-100 rounded-lg transition"
             >
               <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-sm">AD</span>
+                <span className="text-white font-semibold text-sm">A</span>
               </div>
               <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -104,7 +102,7 @@ export default function Header() {
             {showProfile && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-200 py-2">
                 <div className="px-4 py-3 border-b border-slate-200">
-                  <p className="text-sm font-semibold text-slate-900">Admin User</p>
+                  <p className="text-sm font-semibold text-slate-900">Admin</p>
                   <p className="text-xs text-slate-500 mt-1">admin@example.com</p>
                 </div>
                 <div className="py-2">

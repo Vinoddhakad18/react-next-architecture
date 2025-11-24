@@ -1,7 +1,7 @@
-function Error({ statusCode }: { statusCode: number }) {
+function Error({ statusCode }: { statusCode?: number }) {
   return (
-    <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h1>{statusCode}</h1>
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <h1>{statusCode || 'Error'}</h1>
       <p>{statusCode ? `An error ${statusCode} occurred on server` : 'An error occurred on client'}</p>
     </div>
   );

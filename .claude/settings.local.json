@@ -17,7 +17,11 @@
       "Bash(pnpm build:*)",
       "Bash(apps/web/public/README.md)",
       "Bash(docker logs:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git rm:*)",
+      "Bash(rm:*)",
+      "Bash(rmdir:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []

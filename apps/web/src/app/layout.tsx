@@ -1,14 +1,12 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'React Next Architecture',
   description: 'Monorepo template with Next.js',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4200'),
 };
 
 export default function RootLayout({
@@ -18,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
