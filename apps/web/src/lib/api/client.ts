@@ -1,10 +1,11 @@
 /**
  * API Client
- * A type-safe fetch wrapper with error handling
+ * A type-safe fetch wrapper with error handling and automatic token refresh
  */
 
 import { apiConfig, getAuthHeader } from './config';
-import type { ApiResponse, ApiError } from '@/types/api';
+import { API_ENDPOINTS } from './endpoints';
+import type { ApiResponse, ApiError, RefreshTokenResponse } from '@/types/api';
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -14,13 +15,111 @@ interface RequestOptions<TBody = unknown> {
   headers?: Record<string, string>;
   auth?: boolean;
   timeout?: number;
+  _skipRefresh?: boolean;
 }
+
+const TOKEN_KEY = 'authToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
 class ApiClient {
   private baseUrl: string;
+  private isRefreshing = false;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  private getToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(TOKEN_KEY);
+  }
+
+  private getRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  }
+
+  private setToken(token: string) {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(TOKEN_KEY, token);
+    }
+  }
+
+  private setRefreshToken(token: string) {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    }
+  }
+
+  private clearTokens() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
+  }
+
+  private isAuthEndpoint(endpoint: string): boolean {
+    return (
+      endpoint === API_ENDPOINTS.AUTH.LOGIN ||
+      endpoint === API_ENDPOINTS.AUTH.REFRESH ||
+      endpoint === API_ENDPOINTS.AUTH.REGISTER
+    );
+  }
+
+  private async refreshAccessToken(): Promise<boolean> {
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = this.performTokenRefresh();
+
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+    }
+  }
+
+  private async performTokenRefresh(): Promise<boolean> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      this.clearTokens();
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}${API_ENDPOINTS.AUTH.REFRESH}`, {
+        method: 'POST',
+        headers: {
+          ...apiConfig.headers,
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        this.clearTokens();
+        return false;
+      }
+
+      const data = await response.json() as { success: boolean; data: RefreshTokenResponse };
+
+      if (data.success && data.data?.accessToken) {
+        this.setToken(data.data.accessToken);
+        if (data.data.refreshToken) {
+          this.setRefreshToken(data.data.refreshToken);
+        }
+        return true;
+      }
+
+      this.clearTokens();
+      return false;
+    } catch {
+      this.clearTokens();
+      return false;
+    }
   }
 
   private async request<TResponse, TBody = unknown>(
@@ -33,6 +132,7 @@ class ApiClient {
       headers = {},
       auth = false,
       timeout = apiConfig.timeout,
+      _skipRefresh = false,
     } = options;
 
     const url = `${this.baseUrl}${endpoint}`;
@@ -57,6 +157,21 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        if (
+          response.status === 401 &&
+          auth &&
+          !_skipRefresh &&
+          !this.isAuthEndpoint(endpoint)
+        ) {
+          const refreshed = await this.refreshAccessToken();
+          if (refreshed) {
+            return this.request<TResponse, TBody>(endpoint, {
+              ...options,
+              _skipRefresh: true,
+            });
+          }
+        }
+
         const error: ApiError = {
           message: data.message || 'An error occurred',
           status: response.status,
