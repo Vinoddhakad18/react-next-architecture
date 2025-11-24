@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { authService } from '@/services';
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -18,39 +19,20 @@ export default function AdminLogin() {
     setIsLoading(true);
     setError('');
 
-    try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/login', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
+    const response = await authService.login({
+      email: formData.email,
+      password: formData.password,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid credentials');
-      }
-
-      // Store token if returned
-      if (data.token) {
-        localStorage.setItem('authToken', data.token);
-      }
-      if (data.accessToken) {
-        localStorage.setItem('authToken', data.accessToken);
-      }
-
-      const redirect = searchParams?.get('redirect') || '/admin/dashboard';
-      router.push(redirect);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+    if (!response.success) {
+      setError(response.error?.message || 'Login failed. Please try again.');
       setIsLoading(false);
+      return;
     }
+
+    const redirect = searchParams?.get('redirect') || '/admin/dashboard';
+    router.push(redirect);
+    router.refresh();
   };
 
   return (
