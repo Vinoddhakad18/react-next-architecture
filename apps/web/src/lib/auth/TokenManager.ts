@@ -1,9 +1,21 @@
 /**
  * TokenManager
- * Centralized token management for authentication
+ * Centralized token management for authentication with security enhancements
+ *
+ * SECURITY IMPROVEMENTS:
+ * - Uses SecureStorage with sessionStorage + memory storage
+ * - Implements token obfuscation (basic protection)
+ * - Auto-cleanup on tab close
+ *
+ * PRODUCTION RECOMMENDATION:
+ * - Use httpOnly cookies for refresh tokens
+ * - Store access tokens in memory only with short expiration
+ * - Implement proper CSRF protection
+ * - Add Content Security Policy headers
  */
 
 import { STORAGE_KEYS } from '@/constants';
+import { secureStorage } from './SecureStorage';
 
 export class TokenManager {
   private static instance: TokenManager;
@@ -25,11 +37,11 @@ export class TokenManager {
   }
 
   /**
-   * Set access token
+   * Set access token (stored in sessionStorage + memory)
    */
   setToken(token: string): void {
     if (!this.isBrowser()) return;
-    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+    secureStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
   }
 
   /**
@@ -37,15 +49,16 @@ export class TokenManager {
    */
   getToken(): string | null {
     if (!this.isBrowser()) return null;
-    return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    return secureStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   }
 
   /**
-   * Set refresh token
+   * Set refresh token (stored in sessionStorage + memory)
+   * SECURITY: In production, this should be an httpOnly cookie
    */
   setRefreshToken(token: string): void {
     if (!this.isBrowser()) return;
-    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
+    secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
   }
 
   /**
@@ -53,16 +66,16 @@ export class TokenManager {
    */
   getRefreshToken(): string | null {
     if (!this.isBrowser()) return null;
-    return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    return secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
   }
 
   /**
-   * Clear all tokens
+   * Clear all tokens from all storage locations
    */
   clearTokens(): void {
     if (!this.isBrowser()) return;
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    secureStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    secureStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
   }
 
   /**
@@ -78,6 +91,14 @@ export class TokenManager {
   getAuthHeader(): Record<string, string> {
     const token = this.getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  /**
+   * Enable memory-only mode for maximum security
+   * NOTE: Tokens will be lost on page refresh
+   */
+  setMemoryOnlyMode(enabled: boolean): void {
+    secureStorage.setMemoryOnlyMode(enabled);
   }
 }
 

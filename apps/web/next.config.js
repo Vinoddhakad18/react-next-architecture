@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false, // Remove X-Powered-By header
   transpilePackages: ['@repo/ui', '@repo/utils'],
   eslint: {
     ignoreDuringBuilds: false,
@@ -38,7 +39,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
+            value: 'DENY', // Enhanced: DENY instead of SAMEORIGIN
           },
           {
             key: 'X-Content-Type-Options',
@@ -50,7 +51,7 @@ const nextConfig = {
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
+            value: 'strict-origin-when-cross-origin', // Enhanced: stricter policy
           },
           {
             key: 'Permissions-Policy',
