@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services';
 
 export default function AdminLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -19,27 +20,65 @@ export default function AdminLogin() {
     if (authService.isAuthenticated()) {
       router.push('/admin/dashboard');
     }
-  }, [router]);
+  }, [router, authService]);
+
+  // Cleanup: abort pending requests on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
 
-    const response = await authService.login({
-      email: formData.email,
-      password: formData.password,
-    });
-
-    if (!response.success) {
-      setError(response.error?.message || 'Login failed. Please try again.');
-      setIsLoading(false);
+    // Prevent duplicate submissions
+    if (isLoading) {
       return;
     }
 
-    const redirect = searchParams?.get('redirect') || '/admin/dashboard';
-    router.push(redirect);
-    router.refresh();
+    // Abort any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await authService.login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      // Check if request was aborted
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
+      if (!response.success) {
+        setError(response.error?.message || 'Login failed. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      const redirect = searchParams?.get('redirect') || '/admin/dashboard';
+      router.push(redirect);
+      router.refresh();
+    } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (

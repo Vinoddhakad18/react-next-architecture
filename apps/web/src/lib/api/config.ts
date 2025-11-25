@@ -3,6 +3,8 @@
  * Central configuration for all API-related settings
  */
 
+import { tokenManager } from '@/lib/auth/TokenManager';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export const apiConfig = {
@@ -15,8 +17,5 @@ export const apiConfig = {
 } as const;
 
 export const getAuthHeader = (): Record<string, string> => {
-  if (typeof window === 'undefined') return {};
-
-  const token = localStorage.getItem('authToken');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return tokenManager.getAuthHeader();
 };

@@ -5,6 +5,7 @@
 
 import { apiConfig, getAuthHeader } from './config';
 import { API_ENDPOINTS } from './endpoints';
+import { tokenManager } from '@/lib/auth/TokenManager';
 import type { ApiResponse, ApiError, RefreshTokenResponse } from '@/types/api';
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -18,9 +19,6 @@ interface RequestOptions<TBody = unknown> {
   _skipRefresh?: boolean;
 }
 
-const TOKEN_KEY = 'authToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
-
 class ApiClient {
   private baseUrl: string;
   private isRefreshing = false;
@@ -30,34 +28,6 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(TOKEN_KEY);
-  }
-
-  private getRefreshToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
-  }
-
-  private setToken(token: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(TOKEN_KEY, token);
-    }
-  }
-
-  private setRefreshToken(token: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(REFRESH_TOKEN_KEY, token);
-    }
-  }
-
-  private clearTokens() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
-  }
 
   private isAuthEndpoint(endpoint: string): boolean {
     return (
@@ -84,9 +54,9 @@ class ApiClient {
   }
 
   private async performTokenRefresh(): Promise<boolean> {
-    const refreshToken = this.getRefreshToken();
+    const refreshToken = tokenManager.getRefreshToken();
     if (!refreshToken) {
-      this.clearTokens();
+      tokenManager.clearTokens();
       return false;
     }
 
@@ -100,24 +70,24 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        this.clearTokens();
+        tokenManager.clearTokens();
         return false;
       }
 
       const data = await response.json() as { success: boolean; data: RefreshTokenResponse };
 
       if (data.success && data.data?.accessToken) {
-        this.setToken(data.data.accessToken);
+        tokenManager.setToken(data.data.accessToken);
         if (data.data.refreshToken) {
-          this.setRefreshToken(data.data.refreshToken);
+          tokenManager.setRefreshToken(data.data.refreshToken);
         }
         return true;
       }
 
-      this.clearTokens();
+      tokenManager.clearTokens();
       return false;
     } catch {
-      this.clearTokens();
+      tokenManager.clearTokens();
       return false;
     }
   }

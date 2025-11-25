@@ -3,43 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/auth.service';
+import { StatCard, RecentOrders, QuickActions, ActivityFeed } from '@/components/dashboard';
 
 export const dynamic = 'force-dynamic';
-
-// Stats Card Component
-function StatCard({ title, value, change, icon, trend }: {
-  title: string;
-  value: string;
-  change: string;
-  icon: React.ReactNode;
-  trend: 'up' | 'down';
-}) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-      <div className="flex items-center justify-between mb-4">
-        <div className="p-3 bg-purple-100 rounded-lg">
-          {icon}
-        </div>
-        <span className={`flex items-center text-sm font-medium ${
-          trend === 'up' ? 'text-green-600' : 'text-red-600'
-        }`}>
-          {trend === 'up' ? (
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-          )}
-          {change}
-        </span>
-      </div>
-      <h3 className="text-slate-500 text-sm font-medium mb-1">{title}</h3>
-      <p className="text-3xl font-bold text-slate-900">{value}</p>
-    </div>
-  );
-}
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -63,10 +29,10 @@ export default function AdminDashboard() {
   }
 
   const recentOrders = [
-    { id: '#12345', customer: 'John Doe', amount: '$299.00', status: 'Completed', date: '2 hours ago' },
-    { id: '#12344', customer: 'Jane Smith', amount: '$199.00', status: 'Processing', date: '4 hours ago' },
-    { id: '#12343', customer: 'Bob Johnson', amount: '$459.00', status: 'Completed', date: '6 hours ago' },
-    { id: '#12342', customer: 'Alice Brown', amount: '$129.00', status: 'Pending', date: '8 hours ago' },
+    { id: '#12345', customer: 'John Doe', amount: '$299.00', status: 'Completed' as const, date: '2 hours ago' },
+    { id: '#12344', customer: 'Jane Smith', amount: '$199.00', status: 'Processing' as const, date: '4 hours ago' },
+    { id: '#12343', customer: 'Bob Johnson', amount: '$459.00', status: 'Completed' as const, date: '6 hours ago' },
+    { id: '#12342', customer: 'Alice Brown', amount: '$129.00', status: 'Pending' as const, date: '8 hours ago' },
   ];
 
   return (
@@ -126,98 +92,11 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Orders */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-200">
-            <h2 className="text-xl font-bold text-slate-900">Recent Orders</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Order ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {recentOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{order.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{order.customer}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{order.amount}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        order.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        order.status === 'Processing' ? 'bg-blue-100 text-blue-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{order.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <RecentOrders orders={recentOrders} />
 
-        {/* Quick Actions */}
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Quick Actions</h2>
-            <div className="space-y-3">
-              <button className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add New Product
-              </button>
-              <button className="w-full flex items-center justify-center px-4 py-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Add New User
-              </button>
-              <button className="w-full flex items-center justify-center px-4 py-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Generate Report
-              </button>
-            </div>
-          </div>
-
-          {/* Activity Feed */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Recent Activity</h2>
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                <div>
-                  <p className="text-sm text-slate-900 font-medium">New order received</p>
-                  <p className="text-xs text-slate-500">2 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div>
-                  <p className="text-sm text-slate-900 font-medium">User registration</p>
-                  <p className="text-xs text-slate-500">15 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
-                <div>
-                  <p className="text-sm text-slate-900 font-medium">Product updated</p>
-                  <p className="text-xs text-slate-500">1 hour ago</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <QuickActions />
+          <ActivityFeed />
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { tokenManager } from '@/lib/auth/TokenManager';
 import type {
   LoginRequest,
   LoginResponse,
@@ -12,9 +13,6 @@ import type {
   RefreshTokenRequest,
   RefreshTokenResponse,
 } from '@/types/api';
-
-const TOKEN_KEY = 'authToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
 
 export const authService = {
   /**
@@ -27,9 +25,9 @@ export const authService = {
     );
 
     if (response.success && response.data?.data?.accessToken) {
-      this.setToken(response.data.data.accessToken);
+      tokenManager.setToken(response.data.data.accessToken);
       if (response.data.data.refreshToken) {
-        this.setRefreshToken(response.data.data.refreshToken);
+        tokenManager.setRefreshToken(response.data.data.refreshToken);
       }
     }
 
@@ -56,7 +54,7 @@ export const authService = {
       { auth: true }
     );
 
-    this.clearTokens();
+    tokenManager.clearTokens();
     return response;
   },
 
@@ -71,7 +69,7 @@ export const authService = {
    * Refresh access token
    */
   async refreshToken() {
-    const refreshToken = this.getRefreshToken();
+    const refreshToken = tokenManager.getRefreshToken();
     if (!refreshToken) {
       return { data: null, error: { message: 'No refresh token', status: 401 }, success: false };
     }
@@ -82,46 +80,20 @@ export const authService = {
     );
 
     if (response.success && response.data?.data?.accessToken) {
-      this.setToken(response.data.data.accessToken);
+      tokenManager.setToken(response.data.data.accessToken);
       if (response.data.data.refreshToken) {
-        this.setRefreshToken(response.data.data.refreshToken);
+        tokenManager.setRefreshToken(response.data.data.refreshToken);
       }
     }
 
     return response;
   },
 
-  // Token management
-  setToken(token: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(TOKEN_KEY, token);
-    }
-  },
-
-  getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(TOKEN_KEY);
-  },
-
-  setRefreshToken(token: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(REFRESH_TOKEN_KEY, token);
-    }
-  },
-
-  getRefreshToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
-  },
-
-  clearTokens() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
-  },
-
-  isAuthenticated(): boolean {
-    return !!this.getToken();
-  },
+  // Delegate token management to TokenManager
+  setToken: tokenManager.setToken.bind(tokenManager),
+  getToken: tokenManager.getToken.bind(tokenManager),
+  setRefreshToken: tokenManager.setRefreshToken.bind(tokenManager),
+  getRefreshToken: tokenManager.getRefreshToken.bind(tokenManager),
+  clearTokens: tokenManager.clearTokens.bind(tokenManager),
+  isAuthenticated: tokenManager.isAuthenticated.bind(tokenManager),
 };
