@@ -62,8 +62,37 @@ export class SecureStorage {
   }
 
   /**
+   * Set cookie for server-side middleware access
+   */
+  private setCookie(key: string, value: string): void {
+    if (!this.isBrowser()) return;
+
+    try {
+      // Set cookie with secure flags
+      // Note: This is NOT httpOnly (requires backend), but allows middleware access
+      const maxAge = 60 * 60 * 24; // 24 hours
+      document.cookie = `${key}=${value}; path=/; max-age=${maxAge}; SameSite=Strict; Secure`;
+    } catch (error) {
+      console.error('Cookie set error:', error);
+    }
+  }
+
+  /**
+   * Remove cookie
+   */
+  private removeCookie(key: string): void {
+    if (!this.isBrowser()) return;
+
+    try {
+      document.cookie = `${key}=; path=/; max-age=0; SameSite=Strict; Secure`;
+    } catch (error) {
+      console.error('Cookie removal error:', error);
+    }
+  }
+
+  /**
    * Set item in secure storage
-   * Priority: Memory > SessionStorage > LocalStorage (fallback)
+   * Priority: Memory > SessionStorage > Cookie (for middleware)
    */
   setItem(key: string, value: string): void {
     if (!this.isBrowser()) return;
@@ -76,7 +105,7 @@ export class SecureStorage {
     try {
       const obfuscated = this.obfuscate(value);
 
-      // Prefer sessionStorage (cleared on tab close)
+      // 1. Set in sessionStorage (primary storage)
       if (window.sessionStorage) {
         window.sessionStorage.setItem(key, obfuscated);
       } else {
@@ -84,6 +113,11 @@ export class SecureStorage {
         console.warn('SessionStorage unavailable, falling back to localStorage');
         window.localStorage.setItem(key, obfuscated);
       }
+
+      // 2. Set cookie for server-side middleware validation
+      // SECURITY: Non-httpOnly cookie, but needed for middleware
+      // Production: Use httpOnly cookies set by backend instead
+      this.setCookie(key, value);
     } catch (error) {
       console.error('Storage error, using memory only:', error);
       this.useMemoryOnly = true;
@@ -134,6 +168,7 @@ export class SecureStorage {
     try {
       window.sessionStorage?.removeItem(key);
       window.localStorage?.removeItem(key);
+      this.removeCookie(key);
     } catch (error) {
       console.error('Storage removal error:', error);
     }
@@ -145,6 +180,10 @@ export class SecureStorage {
   clearAll(): void {
     if (!this.isBrowser()) return;
 
+    // Clear memory
+    this.memoryStorage.forEach((_, key) => {
+      this.removeCookie(key);
+    });
     this.memoryStorage.clear();
 
     try {

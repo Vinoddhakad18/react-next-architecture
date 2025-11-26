@@ -1,83 +1,66 @@
-/**
- * Next.js Middleware
- * Handles route protection and authentication checks
- */
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { generateCsrfToken, generateCsrfSecret, hashToken } from '@/lib/utils/csrf';
 
-const AUTH_TOKEN_KEY = 'authToken';
-
-const publicRoutes = [
-  '/',
-  '/admin/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
-  '/about',
-  '/contact',
-  '/terms',
-  '/privacy',
-  '/api/v1/auth/login',
-  '/api/v1/auth/register',
-  '/api/v1/auth/forgot-password',
-  '/api/v1/auth/reset-password',
-];
-
-const protectedRoutes = [
-  '/admin/dashboard',
-  '/admin/users',
-  '/admin/settings',
-  '/admin/profile',
-];
-
-function isPublicRoute(pathname: string): boolean {
-  return publicRoutes.some((route) => pathname === route || pathname.startsWith(route));
-}
-
-function isProtectedRoute(pathname: string): boolean {
-  return protectedRoutes.some((route) => pathname === route || pathname.startsWith(route));
-}
-
-function isAuthRoute(pathname: string): boolean {
-  return pathname === '/admin/login' || pathname === '/register';
-}
-
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get('authToken');
+  const csrfToken = request.cookies.get('csrf-token');
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get(AUTH_TOKEN_KEY)?.value;
-  const isAuthenticated = !!token;
 
-  // Allow public routes
-  if (isPublicRoute(pathname) && !isProtectedRoute(pathname)) {
-    // If user is already authenticated and tries to access login/register, redirect to dashboard
-    if (isAuthenticated && isAuthRoute(pathname)) {
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-    }
-    return NextResponse.next();
+  // Allow access to login page without authentication
+  const isLoginPage = pathname === '/admin/login';
+
+  // Redirect authenticated users away from login page
+  if (token && isLoginPage) {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
   }
 
-  // Protect admin routes
-  if (isProtectedRoute(pathname)) {
-    if (!isAuthenticated) {
-      const loginUrl = new URL('/admin/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+  // Redirect unauthenticated users from protected admin routes (except login page)
+  if (!token && pathname.startsWith('/admin') && !isLoginPage) {
+    return NextResponse.redirect(new URL('/admin/login', request.url));
+  }
+
+  // Generate CSRF token if not present and user is authenticated
+  if (token && !csrfToken) {
+    const response = NextResponse.next();
+
+    const newCsrfToken = generateCsrfToken();
+    const secret = generateCsrfSecret();
+    const hashedToken = await hashToken(newCsrfToken, secret);
+
+    // Set CSRF token (accessible to client)
+    response.cookies.set('csrf-token', newCsrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/',
+    });
+
+    // Set hashed token (httpOnly)
+    response.cookies.set('csrf-token-hash', hashedToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24,
+      path: '/',
+    });
+
+    // Set secret (httpOnly)
+    response.cookies.set('csrf-secret', secret, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24,
+      path: '/',
+    });
+
+    return response;
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
-  ],
+  matcher: '/admin/:path*',
 };

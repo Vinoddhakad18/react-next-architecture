@@ -4,6 +4,9 @@
  */
 
 export const API_ENDPOINTS = {
+  // CSRF Protection
+  CSRF: '/api/csrf',
+
   // Authentication
   AUTH: {
     LOGIN: '/api/v1/auth/login',

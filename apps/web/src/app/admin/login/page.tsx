@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services';
+import { getSafeRedirect } from '@/lib/utils/redirectValidation';
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -67,8 +68,10 @@ export default function AdminLogin() {
         return;
       }
 
-      const redirect = searchParams?.get('redirect') || '/admin/dashboard';
-      router.push(redirect);
+      // SECURITY: Validate redirect URL to prevent open redirect attacks
+      const requestedRedirect = searchParams?.get('redirect');
+      const safeRedirect = getSafeRedirect(requestedRedirect, '/admin/dashboard');
+      router.push(safeRedirect);
       router.refresh();
     } catch (err) {
       // Ignore abort errors

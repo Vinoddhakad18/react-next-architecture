@@ -25,7 +25,9 @@
       "Bash(find:*)",
       "Bash(dir:*)",
       "Bash(nul)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

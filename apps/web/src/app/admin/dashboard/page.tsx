@@ -1,32 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { authService } from '@/services/auth.service';
 import { StatCard, RecentOrders, QuickActions, ActivityFeed } from '@/components/dashboard';
 
 export const dynamic = 'force-dynamic';
 
 export default function AdminDashboard() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Check authentication using auth service
-    if (!authService.isAuthenticated()) {
-      router.push('/admin/login');
-    } else {
-      setIsLoading(false);
-    }
-  }, [router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-      </div>
-    );
-  }
+  // SECURITY NOTE: Authentication is enforced by Next.js middleware
+  // Middleware redirects unauthenticated users before this component renders
+  // See: src/middleware.ts for server-side protection
 
   const recentOrders = [
     { id: '#12345', customer: 'John Doe', amount: '$299.00', status: 'Completed' as const, date: '2 hours ago' },

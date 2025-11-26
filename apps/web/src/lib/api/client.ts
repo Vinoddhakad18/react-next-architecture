@@ -6,6 +6,7 @@
 import { apiConfig, getAuthHeader } from './config';
 import { API_ENDPOINTS } from './endpoints';
 import { tokenManager } from '@/lib/auth/TokenManager';
+import { getCsrfTokenFromCookie } from '@/lib/utils/csrf';
 import type { ApiResponse, ApiError, RefreshTokenResponse } from '@/types/api';
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -110,6 +111,11 @@ class ApiClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    // Get CSRF token for state-changing requests
+    const csrfToken = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+      ? getCsrfTokenFromCookie()
+      : null;
+
     try {
       const response = await fetch(url, {
         method,
@@ -117,6 +123,7 @@ class ApiClient {
           ...apiConfig.headers,
           ...headers,
           ...(auth ? getAuthHeader() : {}),
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
         },
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
