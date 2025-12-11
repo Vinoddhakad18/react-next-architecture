@@ -15,10 +15,9 @@ export class SecureStorage {
   private useMemoryOnly: boolean = false;
 
   private constructor() {
-    // Setup cleanup on page unload
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => this.clearAll());
-    }
+    // Note: sessionStorage automatically clears when tab closes
+    // Do NOT add beforeunload listener here - it fires on refresh too
+    // which would clear tokens during hard/soft refresh
   }
 
   static getInstance(): SecureStorage {
@@ -71,7 +70,9 @@ export class SecureStorage {
       // Set cookie with secure flags
       // Note: This is NOT httpOnly (requires backend), but allows middleware access
       const maxAge = 60 * 60 * 24; // 24 hours
-      document.cookie = `${key}=${value}; path=/; max-age=${maxAge}; SameSite=Strict; Secure`;
+      const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 'production';
+      const secureFlag = isProduction ? '; Secure' : '';
+      document.cookie = `${key}=${value}; path=/; max-age=${maxAge}; SameSite=Strict${secureFlag}`;
     } catch (error) {
       console.error('Cookie set error:', error);
     }

@@ -14,6 +14,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@repo/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       next:
         specifier: ^15.1.0
         version: 15.5.6(react-dom@19.2.0)(react@19.2.0)

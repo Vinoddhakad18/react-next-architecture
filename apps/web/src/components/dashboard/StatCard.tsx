@@ -3,13 +3,7 @@
  * Displays a statistics card with an icon, value, and trend indicator
  */
 
-interface StatCardProps {
-  title: string;
-  value: string;
-  change: string;
-  icon: React.ReactNode;
-  trend: 'up' | 'down';
-}
+import type { StatCardProps } from '@/types/components';
 
 export function StatCard({ title, value, change, icon, trend }: StatCardProps) {
   return (

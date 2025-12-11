@@ -3,13 +3,7 @@
  * Displays a table of recent orders with status indicators
  */
 
-interface Order {
-  id: string;
-  customer: string;
-  amount: string;
-  status: 'Completed' | 'Processing' | 'Pending';
-  date: string;
-}
+import type { Order } from '@/types/components';
 
 interface RecentOrdersProps {
   orders: Order[];

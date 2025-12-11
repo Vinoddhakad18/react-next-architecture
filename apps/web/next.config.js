@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false, // Remove X-Powered-By header
+  devIndicators: false, // Disable dev toolbar
   transpilePackages: ['@repo/ui', '@repo/utils'],
   eslint: {
     ignoreDuringBuilds: false,

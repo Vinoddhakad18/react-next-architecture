@@ -1,0 +1,4 @@
+# UI Components Directory
+# Base UI components (Button, Input, Card, etc.) will be placed here
+# Consider moving shared components to @repo/ui package for reusability
+

@@ -1,6 +1,7 @@
 'use client';
 
 import { StatCard, RecentOrders, QuickActions, ActivityFeed } from '@/components/dashboard';
+import type { Order } from '@/types/components';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,11 +10,11 @@ export default function AdminDashboard() {
   // Middleware redirects unauthenticated users before this component renders
   // See: src/middleware.ts for server-side protection
 
-  const recentOrders = [
-    { id: '#12345', customer: 'John Doe', amount: '$299.00', status: 'Completed' as const, date: '2 hours ago' },
-    { id: '#12344', customer: 'Jane Smith', amount: '$199.00', status: 'Processing' as const, date: '4 hours ago' },
-    { id: '#12343', customer: 'Bob Johnson', amount: '$459.00', status: 'Completed' as const, date: '6 hours ago' },
-    { id: '#12342', customer: 'Alice Brown', amount: '$129.00', status: 'Pending' as const, date: '8 hours ago' },
+  const recentOrders: Order[] = [
+    { id: '#12345', customer: 'John Doe', amount: '$299.00', status: 'Completed', date: '2 hours ago' },
+    { id: '#12344', customer: 'Jane Smith', amount: '$199.00', status: 'Processing', date: '4 hours ago' },
+    { id: '#12343', customer: 'Bob Johnson', amount: '$459.00', status: 'Completed', date: '6 hours ago' },
+    { id: '#12342', customer: 'Alice Brown', amount: '$129.00', status: 'Pending', date: '8 hours ago' },
   ];
 
   return (

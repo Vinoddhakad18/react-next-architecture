@@ -34,6 +34,15 @@ export const API_ENDPOINTS = {
     ANALYTICS: '/api/v1/dashboard/analytics',
   },
 
+  // Menus
+  MENUS: {
+    LIST: '/api/v1/menus',
+    CREATE: '/api/v1/menus',
+    GET: (id: number) => `/api/v1/menus/${id}`,
+    UPDATE: (id: number) => `/api/v1/menus/${id}`,
+    DELETE: (id: number) => `/api/v1/menus/${id}`,
+  },
+
   // Health Check
   HEALTH: '/api/v1/health',
 } as const;

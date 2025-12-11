@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/auth.service';
+import type { Notification } from '@/types/components';
 
 export default function Header() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function Header() {
     router.push('/admin/login');
   };
 
-  const notifications = [
+  const notifications: Notification[] = [
     { id: 1, title: 'New user registered', time: '5 min ago', unread: true },
     { id: 2, title: 'Order #1234 completed', time: '1 hour ago', unread: true },
     { id: 3, title: 'Server backup completed', time: '2 hours ago', unread: false },
