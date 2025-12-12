@@ -50,13 +50,9 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  // Temporarily comment out setupFilesAfterEnv to test
+  // setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
-  // Inline setup to avoid path resolution issues
-  setupFilesAfterEnv: [
-    require.resolve('@testing-library/jest-dom'),
-    '<rootDir>/jest.setup.js',
-  ].filter(Boolean),
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
