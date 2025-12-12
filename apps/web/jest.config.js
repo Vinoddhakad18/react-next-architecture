@@ -3,6 +3,44 @@
  * Testing configuration for Jest
  */
 
+// Polyfill Web APIs for Next.js 15 - must be done before nextJest loads
+// Set up ReadableStream, Blob, and File FIRST before requiring undici (which depends on them)
+const { ReadableStream, TransformStream } = require('web-streams-polyfill');
+const { Blob } = require('blob-polyfill');
+global.ReadableStream = ReadableStream;
+global.TransformStream = TransformStream;
+global.Blob = Blob;
+
+// File polyfill - File extends Blob
+class File extends Blob {
+  constructor(fileBits, fileName, options = {}) {
+    super(fileBits, options);
+    this.name = fileName;
+    this.lastModified = options.lastModified || Date.now();
+  }
+}
+global.File = File;
+
+// DOMException polyfill
+if (typeof DOMException === 'undefined') {
+  global.DOMException = class DOMException extends Error {
+    constructor(message, name) {
+      super(message);
+      this.name = name || 'DOMException';
+      this.code = 0;
+    }
+  };
+}
+
+// Now we can safely require undici
+const { Request, Response, Headers, fetch } = require('undici');
+
+// Add other Web API polyfills
+global.Request = Request;
+global.Response = Response;
+global.Headers = Headers;
+global.fetch = fetch;
+
 const nextJest = require('next/jest');
 
 const createJestConfig = nextJest({
@@ -12,9 +50,13 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
-  setupFiles: ['<rootDir>/jest.polyfills.js'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
+  // Inline setup to avoid path resolution issues
+  setupFilesAfterEnv: [
+    require.resolve('@testing-library/jest-dom'),
+    '<rootDir>/jest.setup.js',
+  ].filter(Boolean),
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
