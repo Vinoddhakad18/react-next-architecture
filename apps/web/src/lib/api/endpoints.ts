@@ -43,6 +43,15 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/api/v1/menus/${id}`,
   },
 
+  // Roles
+  ROLES: {
+    LIST: '/api/v1/roles',
+    CREATE: '/api/v1/roles',
+    GET: (id: number) => `/api/v1/roles/${id}`,
+    UPDATE: (id: number) => `/api/v1/roles/${id}`,
+    DELETE: (id: number) => `/api/v1/roles/${id}`,
+  },
+
   // Health Check
   HEALTH: '/api/v1/health',
 } as const;

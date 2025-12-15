@@ -9,7 +9,7 @@ import { HTMLAttributes, ReactNode, useEffect } from 'react';
 export interface ModalProps extends HTMLAttributes<HTMLDivElement> {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
+  title?: string | ReactNode;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
@@ -62,7 +62,11 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
       >
         {title && (
           <div className="flex items-center justify-between p-6 border-b border-slate-200 flex-shrink-0">
-            <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+            {typeof title === 'string' ? (
+              <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+            ) : (
+              <div className="flex-1">{title}</div>
+            )}
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-600 transition-colors"

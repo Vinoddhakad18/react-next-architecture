@@ -1,72 +1,65 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { Menu, MenuListParams } from '@/types/api';
-import { Button, Modal, Input, Select, Checkbox } from '@/components/ui';
-import { menuService } from '@/services';
+import { useState, useEffect, useCallback } from 'react';
+import type { Role, RoleListParams } from '@/types/api';
+import { Button, Modal, Input, Checkbox } from '@/components/ui';
+import { roleService } from '@/services';
 
-interface MenuFormData {
+interface RoleFormData {
   name: string;
-  route: string;
-  parent_id: number | null;
-  sort_order: number;
+  description: string;
   is_active: boolean;
 }
 
-export default function MenuManagementPage() {
-  const [filters, setFilters] = useState<MenuListParams>({
+export default function RoleManagementPage() {
+  const [filters, setFilters] = useState<RoleListParams>({
     page: 1,
     limit: 10,
-    sortBy: 'sort_order',
+    sortBy: 'id',
     sortOrder: 'ASC',
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editingMenuId, setEditingMenuId] = useState<number | null>(null);
-  const [menus, setMenus] = useState<Menu[]>([]);
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [deletingMenuId, setDeletingMenuId] = useState<number | null>(null);
+  const [deletingRoleId, setDeletingRoleId] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [menuToDelete, setMenuToDelete] = useState<Menu | null>(null);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
     total: 0,
     totalPages: 0,
   });
-  const [formData, setFormData] = useState<MenuFormData>({
+  const [formData, setFormData] = useState<RoleFormData>({
     name: '',
-    route: '',
-    parent_id: null,
-    sort_order: 1,
+    description: '',
     is_active: true,
   });
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof MenuFormData, string>>>({});
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof RoleFormData, string>>>({});
 
-  // Fetch menus from API
-  const fetchMenus = useCallback(async () => {
+  // Fetch roles from API
+  const fetchRoles = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const params: MenuListParams = {
+      const params: RoleListParams = {
         ...filters,
         ...(searchTerm && { search: searchTerm }),
       };
 
-      const response = await menuService.getMenus(params);
+      const response = await roleService.getRoles(params);
 
       if (response.success && response.data) {
-        // response.data might be the raw backend response: { success, message, data: { data: [...], pagination: {...} } }
-        // OR it might be the normalized response: { data: [...], meta: {...} }
-        const menuListResponse = response.data;
+        const roleListResponse = response.data;
         
-        // Handle different response structures
-        let menusArray: Menu[] = [];
+        let rolesArray: Role[] = [];
         let paginationData = {
           page: 1,
           limit: 10,
@@ -74,113 +67,107 @@ export default function MenuManagementPage() {
           totalPages: 0,
         };
 
-        // Check if response.data is the raw backend response with nested structure
-        // Format: { success: true, message: "...", data: { data: [...], pagination: {...} } }
-        if (menuListResponse && typeof menuListResponse === 'object') {
-          // Check for nested structure: response.data.data.data (array) and response.data.data.pagination
-          if (menuListResponse.data && typeof menuListResponse.data === 'object' && menuListResponse.data.data && Array.isArray(menuListResponse.data.data)) {
-            const backendData = menuListResponse.data;
+        // Handle different response structures
+        if (roleListResponse && typeof roleListResponse === 'object') {
+          // Check for nested structure: response.data.data (array) and response.data.pagination
+          if (roleListResponse.data && typeof roleListResponse.data === 'object' && roleListResponse.data.data && Array.isArray(roleListResponse.data.data)) {
+            const backendData = roleListResponse.data;
             
-            // Extract and normalize the menus array from backendData.data
-            menusArray = backendData.data.map((menu: any) => ({
-              id: menu.id,
-              name: menu.name,
-              route: menu.route || menu.slug || '',
-              slug: menu.slug || menu.route?.replace(/^\//, '').replace(/\//g, '-') || '',
-              description: menu.description,
-              sortOrder: menu.sort_order ?? menu.sortOrder ?? 0,
-              isActive: menu.is_active ?? menu.isActive ?? true,
-              parentId: menu.parent_id ?? menu.parentId ?? null,
-              createdAt: menu.created_at || menu.createdAt || new Date().toISOString(),
-              updatedAt: menu.updated_at || menu.updatedAt || new Date().toISOString(),
+            rolesArray = backendData.data.map((role: any) => ({
+              id: role.id,
+              name: role.name,
+              description: role.description,
+              isActive: role.status ?? role.is_active ?? role.isActive ?? true,
+              createdAt: role.created_at || role.createdAt || new Date().toISOString(),
+              updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
             }));
             
-            // Extract pagination from backendData.pagination
             const pagination = backendData.pagination || backendData.meta || {};
             paginationData = {
               page: pagination.page || filters.page || 1,
               limit: pagination.limit || filters.limit || 10,
-              total: pagination.total ?? menusArray.length,
-              totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(menusArray.length / (pagination.limit || filters.limit || 10)),
+              total: pagination.total ?? rolesArray.length,
+              totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(rolesArray.length / (pagination.limit || filters.limit || 10)),
             };
-          }
-          // Also check for the case where success property exists (raw backend response wrapper)
-          else if (menuListResponse.success && menuListResponse.data && typeof menuListResponse.data === 'object') {
-            const backendData = menuListResponse.data;
+          } else if (roleListResponse.success && roleListResponse.data && typeof roleListResponse.data === 'object') {
+            const backendData = roleListResponse.data;
             
             if (backendData.data && Array.isArray(backendData.data)) {
-              menusArray = backendData.data.map((menu: any) => ({
-                id: menu.id,
-                name: menu.name,
-                route: menu.route || menu.slug || '',
-                slug: menu.slug || menu.route?.replace(/^\//, '').replace(/\//g, '-') || '',
-                description: menu.description,
-                sortOrder: menu.sort_order ?? menu.sortOrder ?? 0,
-                isActive: menu.is_active ?? menu.isActive ?? true,
-                parentId: menu.parent_id ?? menu.parentId ?? null,
-                createdAt: menu.created_at || menu.createdAt || new Date().toISOString(),
-                updatedAt: menu.updated_at || menu.updatedAt || new Date().toISOString(),
+              rolesArray = backendData.data.map((role: any) => ({
+                id: role.id,
+                name: role.name,
+                description: role.description,
+                isActive: role.status ?? role.is_active ?? role.isActive ?? true,
+                createdAt: role.created_at || role.createdAt || new Date().toISOString(),
+                updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
               }));
               
               const pagination = backendData.pagination || backendData.meta || {};
               paginationData = {
                 page: pagination.page || filters.page || 1,
                 limit: pagination.limit || filters.limit || 10,
-                total: pagination.total ?? menusArray.length,
-                totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(menusArray.length / (pagination.limit || filters.limit || 10)),
+                total: pagination.total ?? rolesArray.length,
+                totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(rolesArray.length / (pagination.limit || filters.limit || 10)),
               };
             }
           }
-        }
-        // Check if response.data is directly an array
-        else if (Array.isArray(menuListResponse)) {
-          menusArray = menuListResponse;
+        } else if (Array.isArray(roleListResponse)) {
+          rolesArray = roleListResponse.map((role: any) => ({
+            id: role.id,
+            name: role.name,
+            description: role.description,
+            isActive: role.status ?? role.is_active ?? role.isActive ?? true,
+            createdAt: role.created_at || role.createdAt || new Date().toISOString(),
+            updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
+          }));
           paginationData = {
             page: filters.page || 1,
             limit: filters.limit || 10,
-            total: menusArray.length,
-            totalPages: Math.ceil(menusArray.length / (filters.limit || 10)),
+            total: rolesArray.length,
+            totalPages: Math.ceil(rolesArray.length / (filters.limit || 10)),
           };
-        } 
-        // Check if response.data is the normalized MenuListResponse: { data: Menu[], meta: {...} }
-        else if (menuListResponse && typeof menuListResponse === 'object' && menuListResponse.data) {
-          if (Array.isArray(menuListResponse.data)) {
-            menusArray = menuListResponse.data;
+        } else if (roleListResponse && typeof roleListResponse === 'object' && roleListResponse.data) {
+          if (Array.isArray(roleListResponse.data)) {
+            rolesArray = roleListResponse.data.map((role: any) => ({
+              id: role.id,
+              name: role.name,
+              description: role.description,
+              isActive: role.status ?? role.is_active ?? role.isActive ?? true,
+              createdAt: role.created_at || role.createdAt || new Date().toISOString(),
+              updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
+            }));
             paginationData = {
-              page: menuListResponse.meta?.page || filters.page || 1,
-              limit: menuListResponse.meta?.limit || filters.limit || 10,
-              total: menuListResponse.meta?.total ?? menusArray.length,
-              totalPages: menuListResponse.meta?.totalPages ?? Math.ceil(menusArray.length / (menuListResponse.meta?.limit || filters.limit || 10)),
+              page: roleListResponse.meta?.page || filters.page || 1,
+              limit: roleListResponse.meta?.limit || filters.limit || 10,
+              total: roleListResponse.meta?.total ?? rolesArray.length,
+              totalPages: roleListResponse.meta?.totalPages ?? Math.ceil(rolesArray.length / (roleListResponse.meta?.limit || filters.limit || 10)),
             };
           }
         }
 
-        setMenus(menusArray);
+        setRoles(rolesArray);
         setPagination(paginationData);
       } else {
-        setError(response.error?.message || 'Failed to fetch menus');
-        setMenus([]); // Set empty array on error
+        setError(response.error?.message || 'Failed to fetch roles');
+        setRoles([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      setMenus([]); // Set empty array on error
+      setRoles([]);
     } finally {
       setIsLoading(false);
     }
   }, [filters, searchTerm]);
 
-  // Fetch menus on mount and when filters change
+  // Fetch roles on mount and when filters change
   useEffect(() => {
-    fetchMenus();
-  }, [fetchMenus]);
+    fetchRoles();
+  }, [fetchRoles]);
 
-  // Use menus directly from API (no client-side filtering/sorting needed)
-  // Ensure paginatedMenus is always an array
-  const paginatedMenus = Array.isArray(menus) ? menus : [];
+  const paginatedRoles = Array.isArray(roles) ? roles : [];
 
   const handleSearch = () => {
     setFilters((prev) => ({ ...prev, page: 1 }));
-    fetchMenus();
   };
 
   const handleSort = (sortBy: string) => {
@@ -190,45 +177,38 @@ export default function MenuManagementPage() {
       sortOrder: prev.sortBy === sortBy && prev.sortOrder === 'ASC' ? 'DESC' : 'ASC',
       page: 1,
     }));
-    // fetchMenus will be called by useEffect when filters change
   };
 
   const handlePageChange = (newPage: number) => {
     setFilters((prev) => ({ ...prev, page: newPage }));
-    // fetchMenus will be called by useEffect when filters change
   };
 
   const handleReset = () => {
     setSearchTerm('');
-    setFilters({ page: 1, limit: 10, sortBy: 'sort_order', sortOrder: 'ASC' });
-    // fetchMenus will be called by useEffect when filters change
+    setFilters({ page: 1, limit: 10, sortBy: 'id', sortOrder: 'ASC' });
   };
 
   const handleOpenModal = () => {
     setIsEditMode(false);
-    setEditingMenuId(null);
+    setEditingRoleId(null);
     setIsModalOpen(true);
     setFormData({
       name: '',
-      route: '',
-      parent_id: null,
-      sort_order: Math.max(...menus.map((m) => m.sortOrder), 0) + 1,
+      description: '',
       is_active: true,
     });
     setFormErrors({});
     setSubmitError(null);
   };
 
-  const handleEditMenu = (menu: Menu) => {
+  const handleEditRole = (role: Role) => {
     setIsEditMode(true);
-    setEditingMenuId(menu.id);
+    setEditingRoleId(role.id);
     setIsModalOpen(true);
     setFormData({
-      name: menu.name,
-      route: menu.route || '',
-      parent_id: menu.parentId ?? null,
-      sort_order: menu.sortOrder,
-      is_active: menu.isActive,
+      name: role.name,
+      description: role.description || '',
+      is_active: role.isActive,
     });
     setFormErrors({});
     setSubmitError(null);
@@ -237,66 +217,56 @@ export default function MenuManagementPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setIsEditMode(false);
-    setEditingMenuId(null);
+    setEditingRoleId(null);
     setFormData({
       name: '',
-      route: '',
-      parent_id: null,
-      sort_order: 1,
+      description: '',
       is_active: true,
     });
     setFormErrors({});
     setSubmitError(null);
   };
 
-  const handleDeleteClick = (menu: Menu) => {
-    setMenuToDelete(menu);
+  const handleDeleteClick = (role: Role) => {
+    setRoleToDelete(role);
     setIsDeleteModalOpen(true);
   };
 
   const handleCloseDeleteModal = () => {
     setIsDeleteModalOpen(false);
-    setMenuToDelete(null);
+    setRoleToDelete(null);
   };
 
-  const handleDeleteMenu = async () => {
-    if (!menuToDelete) return;
+  const handleDeleteRole = async () => {
+    if (!roleToDelete) return;
+
+    setDeletingRoleId(roleToDelete.id);
+    setError(null);
 
     try {
-      setDeletingMenuId(menuToDelete.id);
-      setError(null);
+      const result = await roleService.deleteRole(roleToDelete.id);
 
-      const response = await menuService.deleteMenu(menuToDelete.id);
-
-      if (response.success) {
-        handleCloseDeleteModal();
-        // Refresh the menu list from API
-        await fetchMenus();
-      } else {
-        setError(response.error?.message || 'Failed to delete menu');
+      if (!result.success || result.error) {
+        setError(result.error?.message || 'Failed to delete role');
+        setDeletingRoleId(null);
+        return;
       }
+
+      // Refresh the roles list
+      await fetchRoles();
+      handleCloseDeleteModal();
+      setDeletingRoleId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred while deleting the menu');
-    } finally {
-      setDeletingMenuId(null);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setDeletingRoleId(null);
     }
   };
 
   const validateForm = (): boolean => {
-    const errors: Partial<Record<keyof MenuFormData, string>> = {};
+    const errors: Partial<Record<keyof RoleFormData, string>> = {};
 
     if (!formData.name.trim()) {
       errors.name = 'Name is required';
-    }
-
-    if (!formData.route.trim()) {
-      errors.route = 'Route is required';
-    } else if (!formData.route.startsWith('/')) {
-      errors.route = 'Route must start with /';
-    }
-
-    if (formData.sort_order < 1) {
-      errors.sort_order = 'Sort order must be at least 1';
     }
 
     setFormErrors(errors);
@@ -314,115 +284,47 @@ export default function MenuManagementPage() {
     setSubmitError(null);
 
     try {
-      if (isEditMode && editingMenuId !== null) {
-        // Update existing menu
-        const response = await menuService.updateMenu(editingMenuId, {
+      if (isEditMode && editingRoleId !== null) {
+        // Update existing role
+        const result = await roleService.updateRole(editingRoleId, {
           name: formData.name.trim(),
-          route: formData.route.trim(),
-          parent_id: formData.parent_id,
-          sort_order: formData.sort_order,
-          is_active: formData.is_active,
+          description: formData.description.trim() || undefined,
+          status: formData.is_active,
         });
 
-        if (response.success && response.data) {
-          handleCloseModal();
-          // Refresh the menu list from API
-          await fetchMenus();
-        } else {
-          setSubmitError(response.error?.message || 'Failed to update menu');
+        if (!result.success || result.error) {
+          setSubmitError(result.error?.message || 'Failed to update role');
+          setIsSubmitting(false);
+          return;
         }
+
+        // Refresh the roles list
+        await fetchRoles();
+        handleCloseModal();
       } else {
-        // Create new menu
-        const response = await menuService.createMenu({
+        // Create new role
+        const result = await roleService.createRole({
           name: formData.name.trim(),
-          route: formData.route.trim(),
-          parent_id: formData.parent_id,
-          sort_order: formData.sort_order,
-          is_active: formData.is_active,
+          description: formData.description.trim() || undefined,
+          status: formData.is_active,
         });
 
-        if (response.success && response.data) {
-          // Add the new menu to the list
-          // The API might return the menu in different formats, handle both
-          let newMenu: Menu;
-          
-          // Handle different response formats
-          if (response.data.id !== undefined) {
-            // Direct Menu object
-            newMenu = {
-              id: response.data.id,
-              name: response.data.name || formData.name.trim(),
-              slug: response.data.slug || formData.route.replace(/^\//, '').replace(/\//g, '-'),
-              route: response.data.route || formData.route.trim(),
-              description: response.data.description,
-              sortOrder: response.data.sortOrder ?? response.data.sort_order ?? formData.sort_order,
-              isActive: response.data.isActive ?? response.data.is_active ?? formData.is_active,
-              parentId: response.data.parentId ?? response.data.parent_id ?? formData.parent_id ?? null,
-              createdAt: response.data.createdAt || response.data.created_at || new Date().toISOString(),
-              updatedAt: response.data.updatedAt || response.data.updated_at || new Date().toISOString(),
-            };
-          } else {
-            // Fallback: create menu from form data
-            const slug = formData.route.replace(/^\//, '').replace(/\//g, '-') || formData.name.toLowerCase().replace(/\s+/g, '-');
-            newMenu = {
-              id: Math.max(...menus.map((m) => m.id), 0) + 1,
-              name: formData.name.trim(),
-              slug,
-              route: formData.route.trim(),
-              description: undefined,
-              sortOrder: formData.sort_order,
-              isActive: formData.is_active,
-              parentId: formData.parent_id ?? null,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-          }
-          
-          // Ensure the new menu has all required fields before adding
-          if (newMenu && newMenu.id !== undefined && newMenu.id !== null && newMenu.name) {
-            // Ensure parentId is properly set (null or number, never undefined)
-            newMenu.parentId = newMenu.parentId ?? null;
-            handleCloseModal();
-            // Refresh the menu list from API
-            await fetchMenus();
-          } else {
-            setSubmitError('Invalid menu data received from server');
-          }
-        } else {
-          // Handle API error
-          setSubmitError(response.error?.message || 'Failed to create menu');
+        if (!result.success || result.error) {
+          setSubmitError(result.error?.message || 'Failed to create role');
+          setIsSubmitting(false);
+          return;
         }
+
+        // Refresh the roles list
+        await fetchRoles();
+        handleCloseModal();
       }
+      setIsSubmitting(false);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
-    } finally {
       setIsSubmitting(false);
     }
   };
-
-  // Get parent menu options (only top-level menus can be parents, exclude current menu if editing)
-  const parentMenuOptions = useMemo(() => {
-    // Ensure menus is an array
-    if (!Array.isArray(menus)) {
-      return [{ value: '', label: 'None (Top Level)' }];
-    }
-    
-    const topLevelMenus = menus.filter((m) => 
-      m && 
-      m.id !== undefined && 
-      !m.parentId && 
-      m.id !== editingMenuId // Exclude current menu if editing to prevent circular reference
-    );
-    return [
-      { value: '', label: 'None (Top Level)' },
-      ...topLevelMenus
-        .filter((menu) => menu && menu.id !== undefined && menu.id !== null)
-        .map((menu) => ({
-          value: String(menu.id),
-          label: menu.name || 'Unnamed Menu',
-        })),
-    ];
-  }, [menus, editingMenuId]);
 
   const getStatusBadge = (isActive: boolean) => {
     return (
@@ -468,11 +370,11 @@ export default function MenuManagementPage() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
                 <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                Menu Management
+                Role Management
               </h1>
-              <p className="text-slate-600 mt-1">Manage your application menus and navigation items</p>
+              <p className="text-slate-600 mt-1">Manage user roles</p>
             </div>
             <Button 
               variant="primary" 
@@ -482,7 +384,7 @@ export default function MenuManagementPage() {
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add New Menu
+              Add New Role
             </Button>
           </div>
         </div>
@@ -498,7 +400,7 @@ export default function MenuManagementPage() {
               </div>
               <input
                 type="text"
-                placeholder="Search menus by name or route..."
+                placeholder="Search roles by name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -548,12 +450,12 @@ export default function MenuManagementPage() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Total Menus</p>
+                  <p className="text-sm font-medium text-slate-600">Total Roles</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1">{pagination.total}</p>
                 </div>
                 <div className="p-3 bg-purple-100 rounded-lg">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
               </div>
@@ -561,9 +463,9 @@ export default function MenuManagementPage() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Active Menus</p>
+                  <p className="text-sm font-medium text-slate-600">Active Roles</p>
                   <p className="text-2xl font-bold text-green-600 mt-1">
-                    {paginatedMenus.filter(m => m.isActive).length}
+                    {paginatedRoles.filter(r => r.isActive).length}
                   </p>
                 </div>
                 <div className="p-3 bg-green-100 rounded-lg">
@@ -576,9 +478,9 @@ export default function MenuManagementPage() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Inactive Menus</p>
+                  <p className="text-sm font-medium text-slate-600">Inactive Roles</p>
                   <p className="text-2xl font-bold text-red-600 mt-1">
-                    {paginatedMenus.filter(m => !m.isActive).length}
+                    {paginatedRoles.filter(r => !r.isActive).length}
                   </p>
                 </div>
                 <div className="p-3 bg-red-100 rounded-lg">
@@ -591,12 +493,12 @@ export default function MenuManagementPage() {
           </div>
         )}
 
-        {/* Menu Table */}
+        {/* Role Table */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           {isLoading ? (
             <div className="p-16 text-center">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
-              <p className="mt-4 text-slate-600 font-medium">Loading menus...</p>
+              <p className="mt-4 text-slate-600 font-medium">Loading roles...</p>
             </div>
           ) : error ? (
             <div className="p-16 text-center">
@@ -605,23 +507,23 @@ export default function MenuManagementPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <p className="text-lg font-semibold text-slate-900 mb-2">Error Loading Menus</p>
+              <p className="text-lg font-semibold text-slate-900 mb-2">Error Loading Roles</p>
               <p className="text-red-600">{error}</p>
             </div>
-          ) : !Array.isArray(paginatedMenus) || paginatedMenus.length === 0 ? (
+          ) : !Array.isArray(paginatedRoles) || paginatedRoles.length === 0 ? (
             <div className="p-16 text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
                 <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <p className="text-lg font-semibold text-slate-900 mb-2">No menus found</p>
-              <p className="text-slate-600 mb-6">Get started by creating your first menu item</p>
+              <p className="text-lg font-semibold text-slate-900 mb-2">No roles found</p>
+              <p className="text-slate-600 mb-6">Get started by creating your first role</p>
               <Button variant="primary" onClick={handleOpenModal}>
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Add Your First Menu
+                Add Your First Role
               </Button>
             </div>
           ) : (
@@ -649,16 +551,7 @@ export default function MenuManagementPage() {
                         </button>
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Route
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        <button
-                          onClick={() => handleSort('sort_order')}
-                          className="flex items-center space-x-2 hover:text-purple-600 transition-colors"
-                        >
-                          <span>Sort Order</span>
-                          {getSortIcon('sort_order')}
-                        </button>
+                        Description
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Status
@@ -669,48 +562,40 @@ export default function MenuManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {Array.isArray(paginatedMenus) && paginatedMenus.map((menu) => (
+                    {Array.isArray(paginatedRoles) && paginatedRoles.map((role) => (
                       <tr 
-                        key={menu.id} 
+                        key={role.id} 
                         className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-transparent transition-all duration-150"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-semibold text-slate-900">#{menu.id}</span>
+                          <span className="text-sm font-semibold text-slate-900">#{role.id}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
                               <span className="text-white font-semibold text-sm">
-                                {menu.name.charAt(0).toUpperCase()}
+                                {role.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
                             <div>
-                              <div className="text-sm font-semibold text-slate-900">{menu.name}</div>
-                              {menu.description && (
-                                <div className="text-xs text-slate-500 mt-0.5">{menu.description}</div>
-                              )}
+                              <div className="text-sm font-semibold text-slate-900">{role.name}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <code className="px-3 py-1.5 bg-slate-100 text-purple-700 rounded-md text-xs font-mono font-medium border border-slate-200">
-                            {menu.route || menu.slug || '-'}
-                          </code>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-slate-600 max-w-xs truncate">
+                            {role.description || '-'}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                            {menu.sortOrder}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(menu.isActive)}
+                          {getStatusBadge(role.isActive)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-3">
                             <button 
-                              onClick={() => handleEditMenu(menu)}
+                              onClick={() => handleEditRole(role)}
                               className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
-                              title="Edit menu"
+                              title="Edit role"
                             >
                               <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -718,10 +603,10 @@ export default function MenuManagementPage() {
                               Edit
                             </button>
                             <button 
-                              onClick={() => handleDeleteClick(menu)}
-                              disabled={deletingMenuId === menu.id}
+                              onClick={() => handleDeleteClick(role)}
+                              disabled={deletingRoleId === role.id}
                               className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Delete menu"
+                              title="Delete role"
                             >
                               <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -804,7 +689,7 @@ export default function MenuManagementPage() {
         </div>
       </div>
 
-      {/* Add/Edit Menu Modal */}
+      {/* Add/Edit Role Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -821,7 +706,7 @@ export default function MenuManagementPage() {
                 </svg>
               )}
             </div>
-            <span>{isEditMode ? 'Edit Menu' : 'Add New Menu'}</span>
+            <span>{isEditMode ? 'Edit Role' : 'Add New Role'}</span>
           </div>
         }
         size="md"
@@ -832,47 +717,23 @@ export default function MenuManagementPage() {
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Enter menu name"
+            placeholder="Enter role name"
             error={formErrors.name}
             required
           />
 
-          <Input
-            label="Route"
-            type="text"
-            value={formData.route}
-            onChange={(e) => setFormData({ ...formData, route: e.target.value })}
-            placeholder="/example-page"
-            error={formErrors.route}
-            helperText="Route must start with /"
-            required
-          />
-
-          <Select
-            label="Parent Menu"
-            value={formData.parent_id != null ? String(formData.parent_id) : ''}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                parent_id: e.target.value && e.target.value !== '' ? parseInt(e.target.value) : null,
-              })
-            }
-            options={parentMenuOptions}
-            helperText="Select a parent menu or leave as 'None' for top-level menu"
-          />
-
-          <Input
-            label="Sort Order"
-            type="number"
-            min="1"
-            value={formData.sort_order}
-            onChange={(e) =>
-              setFormData({ ...formData, sort_order: parseInt(e.target.value) || 1 })
-            }
-            error={formErrors.sort_order}
-            helperText="Lower numbers appear first"
-            required
-          />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Enter role description"
+              rows={3}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+          </div>
 
           <Checkbox
             label="Is Active"
@@ -901,7 +762,7 @@ export default function MenuManagementPage() {
               Cancel
             </Button>
             <Button type="submit" variant="primary" isLoading={isSubmitting} disabled={isSubmitting}>
-              {isEditMode ? 'Update Menu' : 'Add Menu'}
+              {isEditMode ? 'Update Role' : 'Add Role'}
             </Button>
           </div>
         </form>
@@ -918,7 +779,7 @@ export default function MenuManagementPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <span className="text-xl font-semibold text-slate-900">Delete Menu</span>
+            <span className="text-xl font-semibold text-slate-900">Delete Role</span>
           </div>
         }
         size="sm"
@@ -934,17 +795,12 @@ export default function MenuManagementPage() {
             </div>
             <div className="flex-1">
               <p className="text-slate-700 font-medium mb-2">
-                Are you sure you want to delete this menu?
+                Are you sure you want to delete this role?
               </p>
-              {menuToDelete && (
+              {roleToDelete && (
                 <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-semibold text-slate-900">{menuToDelete.name}</span>
-                    {menuToDelete.route && (
-                      <code className="text-xs text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                        {menuToDelete.route}
-                      </code>
-                    )}
+                    <span className="text-sm font-semibold text-slate-900">{roleToDelete.name}</span>
                   </div>
                 </div>
               )}
@@ -959,18 +815,18 @@ export default function MenuManagementPage() {
               type="button"
               variant="outline"
               onClick={handleCloseDeleteModal}
-              disabled={deletingMenuId !== null}
+              disabled={deletingRoleId !== null}
             >
               Cancel
             </Button>
             <Button
               type="button"
               variant="danger"
-              onClick={handleDeleteMenu}
-              isLoading={deletingMenuId !== null}
-              disabled={deletingMenuId !== null}
+              onClick={handleDeleteRole}
+              isLoading={deletingRoleId !== null}
+              disabled={deletingRoleId !== null}
             >
-              {deletingMenuId !== null ? 'Deleting...' : 'Delete Menu'}
+              {deletingRoleId !== null ? 'Deleting...' : 'Delete Role'}
             </Button>
           </div>
         </div>
@@ -978,3 +834,6 @@ export default function MenuManagementPage() {
     </div>
   );
 }
+
+
+

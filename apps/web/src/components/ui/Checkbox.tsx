@@ -4,23 +4,41 @@
  */
 
 import { cn } from '@/lib/utils/cn';
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { InputHTMLAttributes, forwardRef, useEffect, useRef } from 'react';
 
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
   error?: string;
   helperText?: string;
+  indeterminate?: boolean;
 }
 
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, error, helperText, id, ...props }, ref) => {
+  ({ className, label, error, helperText, id, indeterminate, ...props }, ref) => {
     const checkboxId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
+    const internalRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      const input = (ref && typeof ref !== 'function' && ref.current) || internalRef.current;
+      if (input) {
+        input.indeterminate = indeterminate || false;
+      }
+    }, [indeterminate, ref]);
+
+    const setRefs = (element: HTMLInputElement | null) => {
+      internalRef.current = element;
+      if (typeof ref === 'function') {
+        ref(element);
+      } else if (ref) {
+        (ref as React.MutableRefObject<HTMLInputElement | null>).current = element;
+      }
+    };
 
     return (
       <div className="w-full">
         <div className="flex items-center">
           <input
-            ref={ref}
+            ref={setRefs}
             type="checkbox"
             id={checkboxId}
             className={cn(
@@ -58,4 +76,6 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
 );
 
 Checkbox.displayName = 'Checkbox';
+
+
 

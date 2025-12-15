@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
-import { invalidateMenuCache, invalidateMenuCachePattern } from '@/lib/utils/cache';
 
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
 
 /**
- * GET /api/v1/menus/[id]
- * Get a single menu by ID
+ * GET /api/v1/roles/[id]
+ * Get a single role by ID
  */
 export async function GET(
   request: NextRequest,
@@ -33,8 +32,7 @@ export async function GET(
     }
 
     // Forward request to backend API
-    // Add cache-busting timestamp to ensure fresh data after cache invalidation
-    const backendUrl = `${BACKEND_API_URL}/api/v1/menus/${id}?_t=${Date.now()}`;
+    const backendUrl = `${BACKEND_API_URL}/api/v1/roles/${id}?_t=${Date.now()}`;
 
     const response = await fetch(backendUrl, {
       method: 'GET',
@@ -54,13 +52,13 @@ export async function GET(
       try {
         errorData = JSON.parse(errorText);
       } catch {
-        errorData = { message: errorText || 'Failed to fetch menu' };
+        errorData = { message: errorText || 'Failed to fetch role' };
       }
 
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || 'Failed to fetch menu',
+          message: errorData.message || 'Failed to fetch role',
           error: errorData,
         },
         { status: response.status }
@@ -72,30 +70,24 @@ export async function GET(
     // Normalize backend response (snake_case to camelCase)
     let normalizedData;
     if (data.success && data.data) {
-      const menu = data.data;
+      const role = data.data;
       normalizedData = {
-        id: menu.id,
-        name: menu.name,
-        route: menu.route,
-        slug: menu.slug || menu.route?.replace(/^\//, '').replace(/\//g, '-'),
-        description: menu.description,
-        sortOrder: menu.sort_order ?? menu.sortOrder ?? 0,
-        isActive: menu.is_active ?? menu.isActive ?? true,
-        parentId: menu.parent_id ?? menu.parentId ?? null,
-        createdAt: menu.created_at || menu.createdAt || new Date().toISOString(),
-        updatedAt: menu.updated_at || menu.updatedAt || new Date().toISOString(),
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions || role.permission || [],
+        isActive: role.is_active ?? role.isActive ?? true,
+        createdAt: role.created_at || role.createdAt || new Date().toISOString(),
+        updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
       };
     } else if (data.id) {
-      // Direct menu object
+      // Direct role object
       normalizedData = {
         id: data.id,
         name: data.name,
-        route: data.route,
-        slug: data.slug || data.route?.replace(/^\//, '').replace(/\//g, '-'),
         description: data.description,
-        sortOrder: data.sort_order ?? data.sortOrder ?? 0,
+        permissions: data.permissions || data.permission || [],
         isActive: data.is_active ?? data.isActive ?? true,
-        parentId: data.parent_id ?? data.parentId ?? null,
         createdAt: data.created_at || data.createdAt || new Date().toISOString(),
         updatedAt: data.updated_at || data.updatedAt || new Date().toISOString(),
       };
@@ -105,7 +97,7 @@ export async function GET(
 
     return NextResponse.json(normalizedData, { status: 200 });
   } catch (error) {
-    console.error('[Menu API] GET error:', error);
+    console.error('[Role API] GET error:', error);
     return NextResponse.json(
       {
         success: false,
@@ -118,8 +110,8 @@ export async function GET(
 }
 
 /**
- * PUT /api/v1/menus/[id]
- * Update an existing menu
+ * PUT /api/v1/roles/[id]
+ * Update an existing role
  */
 export async function PUT(
   request: NextRequest,
@@ -154,7 +146,7 @@ export async function PUT(
     const requestBody = await request.json();
 
     // Forward request to backend API
-    const backendUrl = `${BACKEND_API_URL}/api/v1/menus/${id}`;
+    const backendUrl = `${BACKEND_API_URL}/api/v1/roles/${id}`;
 
     let response: Response;
     try {
@@ -170,7 +162,7 @@ export async function PUT(
         cache: 'no-store',
       });
     } catch (fetchError) {
-      console.error('[Menu API] PUT Fetch error:', fetchError);
+      console.error('[Role API] PUT Fetch error:', fetchError);
       return NextResponse.json(
         {
           success: false,
@@ -187,15 +179,15 @@ export async function PUT(
       try {
         errorData = JSON.parse(errorText);
       } catch {
-        errorData = { message: errorText || 'Failed to update menu' };
+        errorData = { message: errorText || 'Failed to update role' };
       }
 
-      console.error('[Menu API] PUT Backend error:', response.status, errorData);
+      console.error('[Role API] PUT Backend error:', response.status, errorData);
 
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || 'Failed to update menu',
+          message: errorData.message || 'Failed to update role',
           error: errorData,
         },
         { status: response.status }
@@ -207,30 +199,24 @@ export async function PUT(
     // Normalize backend response (snake_case to camelCase)
     let normalizedData;
     if (data.success && data.data) {
-      const menu = data.data;
+      const role = data.data;
       normalizedData = {
-        id: menu.id,
-        name: menu.name,
-        route: menu.route,
-        slug: menu.slug || menu.route?.replace(/^\//, '').replace(/\//g, '-'),
-        description: menu.description,
-        sortOrder: menu.sort_order ?? menu.sortOrder ?? 0,
-        isActive: menu.is_active ?? menu.isActive ?? true,
-        parentId: menu.parent_id ?? menu.parentId ?? null,
-        createdAt: menu.created_at || menu.createdAt || new Date().toISOString(),
-        updatedAt: menu.updated_at || menu.updatedAt || new Date().toISOString(),
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions || role.permission || [],
+        isActive: role.is_active ?? role.isActive ?? true,
+        createdAt: role.created_at || role.createdAt || new Date().toISOString(),
+        updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
       };
     } else if (data.id) {
-      // Direct menu object
+      // Direct role object
       normalizedData = {
         id: data.id,
         name: data.name,
-        route: data.route,
-        slug: data.slug || data.route?.replace(/^\//, '').replace(/\//g, '-'),
         description: data.description,
-        sortOrder: data.sort_order ?? data.sortOrder ?? 0,
+        permissions: data.permissions || data.permission || [],
         isActive: data.is_active ?? data.isActive ?? true,
-        parentId: data.parent_id ?? data.parentId ?? null,
         createdAt: data.created_at || data.createdAt || new Date().toISOString(),
         updatedAt: data.updated_at || data.updatedAt || new Date().toISOString(),
       };
@@ -238,18 +224,9 @@ export async function PUT(
       normalizedData = data;
     }
 
-    // Invalidate Redis cache after successful menu update
-    try {
-      await invalidateMenuCachePattern(authToken, 'menu:*');
-      console.log('[Menu API] Cache invalidated after menu update');
-    } catch (cacheError) {
-      console.error('[Menu API] Cache invalidation error (non-blocking):', cacheError);
-      // Don't fail the request if cache invalidation fails
-    }
-
     return NextResponse.json(normalizedData, { status: 200 });
   } catch (error) {
-    console.error('[Menu API] PUT error:', error);
+    console.error('[Role API] PUT error:', error);
     return NextResponse.json(
       {
         success: false,
@@ -262,8 +239,8 @@ export async function PUT(
 }
 
 /**
- * DELETE /api/v1/menus/[id]
- * Delete a menu
+ * DELETE /api/v1/roles/[id]
+ * Delete a role
  */
 export async function DELETE(
   request: NextRequest,
@@ -295,7 +272,7 @@ export async function DELETE(
     }
 
     // Forward request to backend API
-    const backendUrl = `${BACKEND_API_URL}/api/v1/menus/${id}`;
+    const backendUrl = `${BACKEND_API_URL}/api/v1/roles/${id}`;
 
     let response: Response;
     try {
@@ -309,7 +286,7 @@ export async function DELETE(
         cache: 'no-store',
       });
     } catch (fetchError) {
-      console.error('[Menu API] DELETE Fetch error:', fetchError);
+      console.error('[Role API] DELETE Fetch error:', fetchError);
       return NextResponse.json(
         {
           success: false,
@@ -326,33 +303,24 @@ export async function DELETE(
       try {
         errorData = JSON.parse(errorText);
       } catch {
-        errorData = { message: errorText || 'Failed to delete menu' };
+        errorData = { message: errorText || 'Failed to delete role' };
       }
 
-      console.error('[Menu API] DELETE Backend error:', response.status, errorData);
+      console.error('[Role API] DELETE Backend error:', response.status, errorData);
 
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || 'Failed to delete menu',
+          message: errorData.message || 'Failed to delete role',
           error: errorData,
         },
         { status: response.status }
       );
     }
 
-    // Invalidate Redis cache after successful menu deletion
-    try {
-      await invalidateMenuCachePattern(authToken, 'menu:*');
-      console.log('[Menu API] Cache invalidated after menu deletion');
-    } catch (cacheError) {
-      console.error('[Menu API] Cache invalidation error (non-blocking):', cacheError);
-      // Don't fail the request if cache invalidation fails
-    }
-
-    return NextResponse.json({ success: true, message: 'Menu deleted successfully' }, { status: 200 });
+    return NextResponse.json({ success: true, message: 'Role deleted successfully' }, { status: 200 });
   } catch (error) {
-    console.error('[Menu API] DELETE error:', error);
+    console.error('[Role API] DELETE error:', error);
     return NextResponse.json(
       {
         success: false,
@@ -363,4 +331,6 @@ export async function DELETE(
     );
   }
 }
+
+
 

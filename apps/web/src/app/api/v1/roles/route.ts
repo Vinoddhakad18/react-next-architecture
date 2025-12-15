@@ -1,20 +1,19 @@
 /**
- * Menus API Route
- * Handles menu management operations
+ * Roles API Route
+ * Handles role management operations
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
-import { invalidateMenuCache, invalidateMenuCachePattern } from '@/lib/utils/cache';
 
 // Backend API URL - can be configured via environment variable
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
 
 /**
- * GET /api/v1/menus
- * Fetch list of menus with pagination and sorting
+ * GET /api/v1/roles
+ * Fetch list of roles with pagination and sorting
  */
 export async function GET(request: NextRequest) {
   try {
@@ -37,7 +36,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = searchParams.get('page') || '1';
     const limit = searchParams.get('limit') || '10';
-    const sortBy = searchParams.get('sortBy') || 'sort_order';
+    const sortBy = searchParams.get('sortBy') || 'id';
     const sortOrder = searchParams.get('sortOrder') || 'ASC';
     const search = searchParams.get('search') || '';
     const isActive = searchParams.get('isActive');
@@ -59,9 +58,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Forward request to backend API
-    // Add cache-busting timestamp to ensure fresh data after cache invalidation
     queryParams.append('_t', Date.now().toString());
-    const backendUrl = `${BACKEND_API_URL}/api/v1/menus?${queryParams.toString()}`;
+    const backendUrl = `${BACKEND_API_URL}/api/v1/roles?${queryParams.toString()}`;
 
     let response: Response;
     try {
@@ -77,7 +75,7 @@ export async function GET(request: NextRequest) {
         cache: 'no-store',
       });
     } catch (fetchError) {
-      console.error('[Menu API] Fetch error:', fetchError);
+      console.error('[Role API] Fetch error:', fetchError);
       return NextResponse.json(
         {
           success: false,
@@ -94,13 +92,13 @@ export async function GET(request: NextRequest) {
       try {
         errorData = JSON.parse(errorText);
       } catch {
-        errorData = { message: errorText || 'Failed to fetch menus' };
+        errorData = { message: errorText || 'Failed to fetch roles' };
       }
 
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || 'Failed to fetch menus',
+          message: errorData.message || 'Failed to fetch roles',
           error: errorData,
         },
         { status: response.status }
@@ -109,58 +107,32 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    console.log('[Menu API] Backend response:', JSON.stringify(data, null, 2));
-
-    // Backend response format: { success: true, message: "...", data: { data: Menu[], pagination: {...} } }
-    // Normalize to MenuListResponse format: { data: Menu[], meta: {...} }
-    let menuData: { data: any[]; meta: any };
+    // Normalize backend response
+    let roleData: { data: any[]; meta: any };
 
     if (data.success && data.data) {
-      // Backend returns: { success: true, data: { data: [...], pagination: {...} } }
       const backendData = data.data;
+      const roleItems = backendData.data || backendData.roles || [];
       
-      console.log('[Menu API] Backend response data:', JSON.stringify(data, null, 2));
-      console.log('[Menu API] Backend data object:', JSON.stringify(backendData, null, 2));
-      console.log('[Menu API] backendData.data:', backendData.data);
-      console.log('[Menu API] Is backendData.data an array?', Array.isArray(backendData.data));
-      console.log('[Menu API] backendData.data length:', Array.isArray(backendData.data) ? backendData.data.length : 'N/A');
-      
-      // Normalize menu items from snake_case to camelCase
-      const menuItems = backendData.data || backendData.menus || [];
-      console.log('[Menu API] Menu items to normalize:', Array.isArray(menuItems) ? menuItems.length : 'Not an array');
-      
-      if (!Array.isArray(menuItems)) {
-        console.error('[Menu API] backendData.data is not an array:', typeof menuItems, menuItems);
-      }
-      
-      const normalizedMenus = (Array.isArray(menuItems) ? menuItems : []).map((menu: any) => {
-        const route = menu.route || menu.slug || '';
-        const slug = menu.slug || route.replace(/^\//, '').replace(/\//g, '-') || '';
-        
-        return {
-          id: menu.id,
-          name: menu.name,
-          slug,
-          route,
-          description: menu.description,
-          sortOrder: menu.sortOrder ?? menu.sort_order ?? 0,
-          isActive: menu.isActive ?? menu.is_active ?? true,
-          parentId: menu.parentId ?? menu.parent_id ?? null,
-          createdAt: menu.createdAt || menu.created_at || new Date().toISOString(),
-          updatedAt: menu.updatedAt || menu.updated_at || new Date().toISOString(),
-        };
-      });
+      const normalizedRoles = (Array.isArray(roleItems) ? roleItems : []).map((role: any) => ({
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions || role.permission || [],
+        isActive: role.isActive ?? role.is_active ?? true,
+        createdAt: role.createdAt || role.created_at || new Date().toISOString(),
+        updatedAt: role.updatedAt || role.updated_at || new Date().toISOString(),
+      }));
 
-      // Normalize pagination (backend uses 'pagination', we use 'meta')
       const pagination = backendData.pagination || backendData.meta || {
-        total: normalizedMenus.length,
+        total: normalizedRoles.length,
         page: parseInt(page),
         limit: parseInt(limit),
         totalPages: 1,
       };
 
-      menuData = {
-        data: normalizedMenus,
+      roleData = {
+        data: normalizedRoles,
         meta: {
           total: pagination.total,
           page: pagination.page,
@@ -168,15 +140,10 @@ export async function GET(request: NextRequest) {
           totalPages: pagination.totalPages || pagination.total_pages || 1,
         },
       };
-      
-      console.log('[Menu API] Normalized menuData:', JSON.stringify(menuData, null, 2));
-      console.log('[Menu API] normalizedMenus count:', normalizedMenus.length);
     } else if (data.data && Array.isArray(data.data) && data.meta) {
-      // Already in MenuListResponse format
-      menuData = data;
+      roleData = data;
     } else if (Array.isArray(data)) {
-      // Just an array
-      menuData = {
+      roleData = {
         data: data,
         meta: {
           total: data.length,
@@ -186,24 +153,14 @@ export async function GET(request: NextRequest) {
         },
       };
     } else {
-      // Fallback - try to extract data from any structure
-      console.warn('[Menu API] Falling back to default structure, data:', JSON.stringify(data, null, 2));
-      
-      // Try to find any array in the response
       let foundArray: any[] = [];
       if (data.data && Array.isArray(data.data)) {
         foundArray = data.data;
       } else if (Array.isArray(data)) {
         foundArray = data;
-      } else if (data && typeof data === 'object') {
-        const values = Object.values(data);
-        const arrayValue = values.find(v => Array.isArray(v));
-        if (arrayValue) {
-          foundArray = arrayValue;
-        }
       }
-      
-      menuData = {
+
+      roleData = {
         data: foundArray,
         meta: {
           total: foundArray.length,
@@ -212,23 +169,15 @@ export async function GET(request: NextRequest) {
           totalPages: Math.ceil(foundArray.length / parseInt(limit)),
         },
       };
-      
-      console.log('[Menu API] Fallback menuData:', JSON.stringify(menuData, null, 2));
     }
 
-    // Ensure menuData.data is always an array
-    if (!Array.isArray(menuData.data)) {
-      console.error('[Menu API] menuData.data is not an array!', typeof menuData.data, menuData.data);
-      menuData.data = [];
+    if (!Array.isArray(roleData.data)) {
+      roleData.data = [];
     }
 
-    console.log('[Menu API] Final menuData to return:', JSON.stringify(menuData, null, 2));
-    console.log('[Menu API] Final menuData.data length:', menuData.data.length);
-
-    // Return the MenuListResponse directly (API client will wrap it in { data, error, success })
-    return NextResponse.json(menuData, { status: 200 });
+    return NextResponse.json(roleData, { status: 200 });
   } catch (error) {
-    console.error('Menu API error:', error);
+    console.error('Role API error:', error);
     return NextResponse.json(
       {
         success: false,
@@ -241,8 +190,8 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/v1/menus
- * Create a new menu
+ * POST /api/v1/roles
+ * Create a new role
  */
 export async function POST(request: NextRequest) {
   try {
@@ -272,7 +221,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Forward request to backend API
-    const backendUrl = `${BACKEND_API_URL}/api/v1/menus`;
+    const backendUrl = `${BACKEND_API_URL}/api/v1/roles`;
 
     let response: Response;
     try {
@@ -288,7 +237,7 @@ export async function POST(request: NextRequest) {
         cache: 'no-store',
       });
     } catch (fetchError) {
-      console.error('[Menu API] POST Fetch error:', fetchError);
+      console.error('[Role API] POST Fetch error:', fetchError);
       return NextResponse.json(
         {
           success: false,
@@ -305,15 +254,15 @@ export async function POST(request: NextRequest) {
       try {
         errorData = JSON.parse(errorText);
       } catch {
-        errorData = { message: errorText || 'Failed to create menu' };
+        errorData = { message: errorText || 'Failed to create role' };
       }
 
-      console.error('[Menu API] POST Backend error:', response.status, errorData);
+      console.error('[Role API] POST Backend error:', response.status, errorData);
 
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || 'Failed to create menu',
+          message: errorData.message || 'Failed to create role',
           error: errorData,
         },
         { status: response.status }
@@ -322,38 +271,24 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    // Normalize the response to ensure it matches Menu interface
-    // Backend might return snake_case or camelCase
-    let menuData = data;
+    // Normalize the response
+    let roleData = data;
     
     if (data && typeof data === 'object') {
-      // Normalize field names if needed
-      menuData = {
+      roleData = {
         id: data.id,
         name: data.name,
-        slug: data.slug || data.route?.replace(/^\//, '').replace(/\//g, '-') || '',
         description: data.description,
-        sortOrder: data.sortOrder ?? data.sort_order ?? 0,
+        permissions: data.permissions || data.permission || [],
         isActive: data.isActive ?? data.is_active ?? true,
-        parentId: data.parentId ?? data.parent_id ?? null,
         createdAt: data.createdAt || data.created_at || new Date().toISOString(),
         updatedAt: data.updatedAt || data.updated_at || new Date().toISOString(),
       };
     }
 
-    // Invalidate Redis cache after successful menu creation
-    try {
-      await invalidateMenuCachePattern(authToken, 'menu:*');
-      console.log('[Menu API] Cache invalidated after menu creation');
-    } catch (cacheError) {
-      console.error('[Menu API] Cache invalidation error (non-blocking):', cacheError);
-      // Don't fail the request if cache invalidation fails
-    }
-
-    // Return the menu data directly (API client will wrap it in { data, error, success })
-    return NextResponse.json(menuData, { status: 200 });
+    return NextResponse.json(roleData, { status: 200 });
   } catch (error) {
-    console.error('Menu API POST error:', error);
+    console.error('Role API POST error:', error);
     return NextResponse.json(
       {
         success: false,
@@ -364,4 +299,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
 
