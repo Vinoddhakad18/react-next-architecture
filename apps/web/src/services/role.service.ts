@@ -4,9 +4,7 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import type { Role, RoleListParams, RoleListResponse, ApiResponse } from '@/types/api';
-
-export type { UpdateRoleRequest };
+import type { Role, RoleListParams, RoleListResponse } from '@/types/api';
 
 export interface CreateRoleRequest {
   name: string;
@@ -49,6 +47,13 @@ export const roleService = {
     const endpoint = `${API_ENDPOINTS.ROLES.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
     return apiClient.get<RoleListResponse>(endpoint, { auth: true });
+  },
+
+  /**
+   * Get list of active roles
+   */
+  async getActiveRoles() {
+    return apiClient.get<{ data: Role[] } | Role[]>(API_ENDPOINTS.ROLES.ACTIVE_LIST, { auth: true });
   },
 
   /**

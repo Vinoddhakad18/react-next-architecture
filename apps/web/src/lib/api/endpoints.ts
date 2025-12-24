@@ -37,6 +37,7 @@ export const API_ENDPOINTS = {
   // Menus
   MENUS: {
     LIST: '/api/v1/menus',
+    ACTIVE_LIST: '/api/v1/menus/active/list',
     CREATE: '/api/v1/menus',
     GET: (id: number) => `/api/v1/menus/${id}`,
     UPDATE: (id: number) => `/api/v1/menus/${id}`,
@@ -46,6 +47,7 @@ export const API_ENDPOINTS = {
   // Roles
   ROLES: {
     LIST: '/api/v1/roles',
+    ACTIVE_LIST: '/api/v1/roles/active/list',
     CREATE: '/api/v1/roles',
     GET: (id: number) => `/api/v1/roles/${id}`,
     UPDATE: (id: number) => `/api/v1/roles/${id}`,

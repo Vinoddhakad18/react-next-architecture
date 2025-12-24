@@ -58,6 +58,13 @@ export const menuService = {
   },
 
   /**
+   * Get list of active menus
+   */
+  async getActiveMenus() {
+    return apiClient.get<{ data: Menu[] } | Menu[]>(API_ENDPOINTS.MENUS.ACTIVE_LIST, { auth: true });
+  },
+
+  /**
    * Create a new menu
    */
   async createMenu(menu: CreateMenuRequest) {
