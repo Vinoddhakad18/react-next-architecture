@@ -65,6 +65,19 @@ export const menuService = {
   },
 
   /**
+   * Get the hierarchical menu tree
+   */
+  async getMenuTree(activeOnly = false) {
+    const queryParams = new URLSearchParams();
+    if (activeOnly) {
+      queryParams.append('active_only', 'true');
+    }
+
+    const endpoint = `${API_ENDPOINTS.MENUS.TREE}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiClient.get<{ success: boolean; message: string; data: Menu[] }>(endpoint, { auth: true });
+  },
+
+  /**
    * Create a new menu
    */
   async createMenu(menu: CreateMenuRequest) {

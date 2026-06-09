@@ -38,6 +38,7 @@ export const API_ENDPOINTS = {
   MENUS: {
     LIST: '/api/v1/menus',
     ACTIVE_LIST: '/api/v1/menus/active/list',
+    TREE: '/api/v1/menus/tree',
     CREATE: '/api/v1/menus',
     GET: (id: number) => `/api/v1/menus/${id}`,
     UPDATE: (id: number) => `/api/v1/menus/${id}`,
@@ -52,6 +53,15 @@ export const API_ENDPOINTS = {
     GET: (id: number) => `/api/v1/roles/${id}`,
     UPDATE: (id: number) => `/api/v1/roles/${id}`,
     DELETE: (id: number) => `/api/v1/roles/${id}`,
+  },
+
+  // Branches
+  BRANCHES: {
+    LIST: '/api/v1/branches',
+    CREATE: '/api/v1/branches',
+    GET: (id: number) => `/api/v1/branches/${id}`,
+    UPDATE: (id: number) => `/api/v1/branches/${id}`,
+    DELETE: (id: number) => `/api/v1/branches/${id}`,
   },
 
   // Health Check

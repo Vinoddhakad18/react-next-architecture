@@ -3,6 +3,7 @@
  */
 
 export { Button, type ButtonProps } from './Button';
+export { ActionButton, type ActionButtonProps } from './ActionButton';
 export { Input, type InputProps } from './Input';
 export { Select, type SelectProps } from './Select';
 export { Checkbox, type CheckboxProps } from './Checkbox';

@@ -1,55 +1,102 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { menuService } from '@/services';
+import type { Menu } from '@/types/api/menu';
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ReactNode;
+function extractMenuTree(responseData: unknown): Menu[] {
+  if (Array.isArray(responseData)) {
+    return responseData;
+  }
+
+  if (responseData && typeof responseData === 'object') {
+    const data = (responseData as any).data;
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    if (data && typeof data === 'object' && Array.isArray(data.data)) {
+      return data.data;
+    }
+  }
+
+  return [];
 }
 
-const navigation: NavItem[] = [
-  {
-    name: 'Dashboard',
-    href: '/admin/dashboard',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-  },
-  {
-    name: 'Menu Management',
-    href: '/admin/menus',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    ),
-  },
-  {
-    name: 'Role Management',
-    href: '/admin/roles',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-  },
-  {
-    name: 'RBAC Permissions',
-    href: '/admin/rbac-permissions',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-      </svg>
-    ),
-  }
-];
+const MenuIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+  </svg>
+);
+
+function renderMenuItems(items: Menu[], pathname: string, depth = 0) {
+  return items.map((item) => {
+    const route = item.route?.trim() || '#';
+    const isActive =
+      route !== '#' &&
+      (pathname === route || pathname.startsWith(`${route}/`));
+
+    return (
+      <div key={item.id}>
+        <Link
+          href={route}
+          className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+            isActive
+              ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+          }`}
+          style={{ paddingLeft: `${16 + depth * 16}px` }}
+          aria-current={isActive ? 'page' : undefined}
+        >
+          {MenuIcon}
+          <span className="font-medium">{item.name}</span>
+        </Link>
+
+        {item.children?.length ? (
+          <div className="space-y-1">
+            {renderMenuItems(item.children, pathname, depth + 1)}
+          </div>
+        ) : null}
+      </div>
+    );
+  });
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadMenuTree() {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await menuService.getMenuTree(true);
+      if (!isMounted) {
+        return;
+      }
+
+      if (response.success && response.data) {
+        const menuItems = extractMenuTree(response.data);
+        setMenus(menuItems);
+      } else {
+        setError(response.error?.message || 'Failed to load menu tree');
+      }
+
+      setIsLoading(false);
+    }
+
+    loadMenuTree();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <aside className="fixed top-0 left-0 z-40 w-64 h-screen bg-slate-900 border-r border-slate-800">
@@ -65,23 +112,15 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-1">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                isActive
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              {item.icon}
-              <span className="font-medium">{item.name}</span>
-            </Link>
-          );
-        })}
+        {isLoading ? (
+          <div className="px-4 py-3 text-sm text-slate-400">Loading menu tree...</div>
+        ) : error ? (
+          <div className="px-4 py-3 text-sm text-rose-400">{error}</div>
+        ) : menus.length > 0 ? (
+          renderMenuItems(menus, pathname)
+        ) : (
+          <div className="px-4 py-3 text-sm text-slate-400">No active menu items found.</div>
+        )}
       </nav>
 
       {/* User Profile */}
