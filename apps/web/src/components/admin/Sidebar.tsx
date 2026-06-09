@@ -26,42 +26,100 @@ function extractMenuTree(responseData: unknown): Menu[] {
 }
 
 const MenuIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
   </svg>
 );
 
-function renderMenuItems(items: Menu[], pathname: string, depth = 0) {
-  return items.map((item) => {
-    const route = item.route?.trim() || '#';
-    const isActive =
-      route !== '#' &&
-      (pathname === route || pathname.startsWith(`${route}/`));
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg
+    className={`w-4 h-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);
 
-    return (
-      <div key={item.id}>
-        <Link
-          href={route}
-          className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-            isActive
-              ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-          }`}
-          style={{ paddingLeft: `${16 + depth * 16}px` }}
-          aria-current={isActive ? 'page' : undefined}
-        >
-          {MenuIcon}
-          <span className="font-medium">{item.name}</span>
-        </Link>
+function isRouteActive(route: string, pathname: string) {
+  return route !== '#' && (pathname === route || pathname.startsWith(`${route}/`));
+}
 
-        {item.children?.length ? (
-          <div className="space-y-1">
-            {renderMenuItems(item.children, pathname, depth + 1)}
-          </div>
-        ) : null}
-      </div>
-    );
-  });
+function branchContainsActive(item: Menu, pathname: string): boolean {
+  const route = item.route?.trim() || '#';
+  if (isRouteActive(route, pathname)) {
+    return true;
+  }
+  return Boolean(item.children?.some((child) => branchContainsActive(child, pathname)));
+}
+
+function MenuList({ items, pathname, depth = 0 }: { items: Menu[]; pathname: string; depth?: number }) {
+  const activeId = items.find((item) => branchContainsActive(item, pathname))?.id ?? null;
+  const [openId, setOpenId] = useState<number | null>(activeId);
+
+  useEffect(() => {
+    setOpenId(activeId);
+  }, [activeId]);
+
+  return (
+    <>
+      {items.map((item) => {
+        const route = item.route?.trim() || '#';
+        const hasChildren = Boolean(item.children?.length);
+        const isActive = isRouteActive(route, pathname);
+        const isOpen = openId === item.id;
+        const paddingLeft = `${16 + depth * 16}px`;
+
+        if (hasChildren) {
+          return (
+            <div key={item.id}>
+              <button
+                type="button"
+                onClick={() => setOpenId((current) => (current === item.id ? null : item.id))}
+                aria-expanded={isOpen}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all ${
+                  isActive
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+                style={{ paddingLeft }}
+              >
+                <span className="flex items-center space-x-3 min-w-0">
+                  {MenuIcon}
+                  <span className="font-medium truncate">{item.name}</span>
+                </span>
+                <ChevronIcon open={isOpen} />
+              </button>
+
+              {isOpen ? (
+                <div className="mt-1 space-y-1">
+                  <MenuList items={item.children!} pathname={pathname} depth={depth + 1} />
+                </div>
+              ) : null}
+            </div>
+          );
+        }
+
+        return (
+          <Link
+            key={item.id}
+            href={route}
+            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+              isActive
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+            style={{ paddingLeft }}
+            aria-current={isActive ? 'page' : undefined}
+          >
+            {MenuIcon}
+            <span className="font-medium truncate">{item.name}</span>
+          </Link>
+        );
+      })}
+    </>
+  );
 }
 
 export default function Sidebar() {
@@ -117,7 +175,7 @@ export default function Sidebar() {
         ) : error ? (
           <div className="px-4 py-3 text-sm text-rose-400">{error}</div>
         ) : menus.length > 0 ? (
-          renderMenuItems(menus, pathname)
+          <MenuList items={menus} pathname={pathname} />
         ) : (
           <div className="px-4 py-3 text-sm text-slate-400">No active menu items found.</div>
         )}
