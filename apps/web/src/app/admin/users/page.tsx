@@ -1,9 +1,10 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { User, UserListParams, UpdateUserRequest } from '@/types/api/user';
+import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from '@/types/api/user';
 import { Button, Input, Modal, Select } from '@/components/ui';
-import { userService } from '@/services';
+import { userService, roleService, branchService } from '@/services';
+import { createUserSchema } from '@/lib/validation/userSchemas';
 
 export default function UserManagementPage() {
   const [filters, setFilters] = useState<UserListParams>({
@@ -34,6 +35,27 @@ export default function UserManagementPage() {
     role: 'user',
     status: 'active',
   });
+  const [roleOptions, setRoleOptions] = useState<Array<{ value: number; label: string }>>([]);
+  const [branchOptions, setBranchOptions] = useState<Array<{ value: number; label: string }>>([]);
+
+  const emptyCreate: CreateUserRequest = { name: '', email: '', password: '', mobile: '', roleId: 0, branchIds: [] };
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createData, setCreateData] = useState<CreateUserRequest>(emptyCreate);
+
+  useEffect(() => {
+    (async () => {
+      const [rolesRes, branchesRes] = await Promise.all([
+        roleService.getActiveRoles(),
+        branchService.getBranches({ page: 1, limit: 100 }),
+      ]);
+      const roles: any[] = Array.isArray(rolesRes.data)
+        ? rolesRes.data
+        : (rolesRes.data as any)?.data ?? [];
+      setRoleOptions(roles.map((r) => ({ value: r.id, label: r.name })));
+      const branches = branchesRes.data?.data ?? [];
+      setBranchOptions(branches.map((b) => ({ value: b.id, label: b.branchName })));
+    })().catch(() => {/* non-fatal: dropdowns simply stay empty */});
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -122,6 +144,41 @@ export default function UserManagementPage() {
     setUserToDelete(null);
     setIsDeleteModalOpen(false);
     setSubmitError(null);
+  };
+
+  const handleOpenCreate = () => {
+    setCreateData(emptyCreate);
+    setSubmitError(null);
+    setIsCreateOpen(true);
+  };
+
+  const handleCloseCreate = () => {
+    setIsCreateOpen(false);
+    setSubmitError(null);
+  };
+
+  const handleSubmitCreate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const parsed = createUserSchema.safeParse(createData);
+    if (!parsed.success) {
+      setSubmitError(parsed.error.issues[0]?.message ?? 'Please fix validation errors');
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const response = await userService.createUser(parsed.data as CreateUserRequest);
+      if (response.success) {
+        handleCloseCreate();
+        await fetchUsers();
+      } else {
+        setSubmitError(response.error?.message || 'Failed to create user');
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const validateForm = () => {
@@ -219,6 +276,7 @@ export default function UserManagementPage() {
           />
           <Button onClick={handleSearch} variant="secondary">Search</Button>
           <Button onClick={handleReset} variant="outline">Reset</Button>
+          <Button onClick={handleOpenCreate} variant="primary">Add User</Button>
         </div>
       </div>
 
@@ -297,6 +355,66 @@ export default function UserManagementPage() {
           </div>
         </div>
       </div>
+
+      <Modal isOpen={isCreateOpen} onClose={handleCloseCreate} title="Add User" size="md">
+        <form onSubmit={handleSubmitCreate} className="space-y-4">
+          <Input
+            label="Name"
+            value={createData.name}
+            onChange={(e) => setCreateData((p) => ({ ...p, name: e.target.value }))}
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={createData.email}
+            onChange={(e) => setCreateData((p) => ({ ...p, email: e.target.value }))}
+          />
+          <Input
+            label="Password"
+            type="password"
+            value={createData.password}
+            onChange={(e) => setCreateData((p) => ({ ...p, password: e.target.value }))}
+          />
+          <Input
+            label="Mobile"
+            value={createData.mobile}
+            onChange={(e) => setCreateData((p) => ({ ...p, mobile: e.target.value }))}
+          />
+          <Select
+            label="Role"
+            value={createData.roleId || ''}
+            onChange={(e) => setCreateData((p) => ({ ...p, roleId: Number(e.target.value) }))}
+            options={[{ value: '', label: 'Select a role' }, ...roleOptions]}
+          />
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-slate-700">Branches</legend>
+            {branchOptions.map((b) => (
+              <label key={b.value} className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={createData.branchIds.includes(b.value)}
+                  onChange={(e) => setCreateData((p) => ({
+                    ...p,
+                    branchIds: e.target.checked
+                      ? [...p.branchIds, b.value]
+                      : p.branchIds.filter((id) => id !== b.value),
+                  }))}
+                />
+                {b.label}
+              </label>
+            ))}
+          </fieldset>
+          {submitError ? <p className="text-sm text-rose-500">{submitError}</p> : null}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={handleCloseCreate} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+              Create User
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title="Edit User" size="md">
         <form onSubmit={handleSubmitEdit} className="space-y-4">
