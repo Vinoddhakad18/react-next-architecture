@@ -8,6 +8,10 @@ export interface User {
   email: string;
   role: string;
   status: string;
+  // Optional richer fields (present when the backend returns them).
+  mobile?: string;
+  roleId?: number;
+  branchIds?: number[];
   createdAt: string;
   updatedAt: string;
 }
@@ -30,9 +34,20 @@ export interface UserListResponse {
   };
 }
 
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  password: string;
+  mobile: string;
+  roleId: number;
+  branchIds: number[];
+}
+
 export interface UpdateUserRequest {
   name?: string;
   email?: string;
-  role?: string;
-  status?: string;
+  password?: string;
+  mobile?: string;
+  roleId?: number;
+  branchIds?: number[];
 }
