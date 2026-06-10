@@ -12,7 +12,7 @@ export default function Header() {
 
   const handleLogout = async () => {
     await authService.logout();
-    router.push('/admin/login');
+    router.push('/login');
   };
 
   const notifications: Notification[] = [

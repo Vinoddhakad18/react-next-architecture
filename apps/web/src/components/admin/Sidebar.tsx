@@ -86,7 +86,7 @@ function MenuList({ items, pathname, depth = 0 }: { items: Menu[]; pathname: str
                 style={{ paddingLeft }}
               >
                 <span className="flex items-center space-x-3 min-w-0">
-                  {MenuIcon}
+                 
                   <span className="font-medium truncate">{item.name}</span>
                 </span>
                 <ChevronIcon open={isOpen} />
@@ -113,7 +113,7 @@ function MenuList({ items, pathname, depth = 0 }: { items: Menu[]; pathname: str
             style={{ paddingLeft }}
             aria-current={isActive ? 'page' : undefined}
           >
-            {MenuIcon}
+          
             <span className="font-medium truncate">{item.name}</span>
           </Link>
         );

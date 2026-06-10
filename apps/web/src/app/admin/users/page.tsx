@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { User, UserListParams, UpdateUserRequest } from '@/types/api/user';
+import type { User, UserListParams, UpdateUserRequest, User } from '@/types/api/user';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { userService } from '@/services';
 
@@ -47,9 +47,9 @@ export default function UserManagementPage() {
 
       const response = await userService.getUsers(params);
       if (response.success && response.data) {
-        const payload = response.data as unknown as { data?: unknown; meta?: any };
-        const normalizedUsers = Array.isArray(payload.data)
-          ? payload.data
+        const payload = response.data as { data:any; meta: { page: number; limit: number; total: number; totalPages: number } };
+        const normalizedUsers = Array.isArray(payload?.data?.data)
+          ? payload?.data?.data
           : Array.isArray(response.data)
           ? response.data
           : [];
