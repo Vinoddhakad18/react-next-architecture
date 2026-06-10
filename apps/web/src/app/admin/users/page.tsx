@@ -184,7 +184,16 @@ export default function UserManagementPage() {
     event.preventDefault();
     if (!editingUser) return;
 
-    const parsed = updateUserSchema.safeParse(formData);
+    const candidate: UpdateUserRequest = {
+      name: formData.name,
+      email: formData.email,
+      mobile: formData.mobile,
+      password: formData.password,
+      ...(formData.roleId ? { roleId: formData.roleId } : {}),
+      ...(formData.branchIds && formData.branchIds.length ? { branchIds: formData.branchIds } : {}),
+    };
+
+    const parsed = updateUserSchema.safeParse(candidate);
     if (!parsed.success) {
       setSubmitError(parsed.error.issues[0]?.message ?? 'Please fix validation errors');
       return;
