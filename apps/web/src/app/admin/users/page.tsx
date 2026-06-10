@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { User, UserListParams, UpdateUserRequest, User } from '@/types/api/user';
+import type { User, UserListParams, UpdateUserRequest } from '@/types/api/user';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { userService } from '@/services';
 

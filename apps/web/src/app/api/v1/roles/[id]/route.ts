@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
-const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
+import { BACKEND_API_URL } from '@/lib/api/backendConfig';
+import { backendFetch } from '@/lib/api/backendProxy';
 
 /**
  * GET /api/v1/roles/[id]
  * Get a single role by ID
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -34,16 +34,10 @@ export async function GET(
     // Forward request to backend API
     const backendUrl = `${BACKEND_API_URL}/api/v1/roles/${id}?_t=${Date.now()}`;
 
-    const response = await fetch(backendUrl, {
+    const response = await backendFetch(backendUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'X-API-Key': API_KEY,
-        'Authorization': `Bearer ${authToken}`,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-      },
-      cache: 'no-store',
+      authToken,
+      noCache: true,
     });
 
     if (!response.ok) {
@@ -150,16 +144,10 @@ export async function PUT(
 
     let response: Response;
     try {
-      response = await fetch(backendUrl, {
+      response = await backendFetch(backendUrl, {
         method: 'PUT',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-API-Key': API_KEY,
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(requestBody),
-        cache: 'no-store',
+        authToken,
+        body: requestBody,
       });
     } catch (fetchError) {
       console.error('[Role API] PUT Fetch error:', fetchError);
@@ -276,14 +264,9 @@ export async function DELETE(
 
     let response: Response;
     try {
-      response = await fetch(backendUrl, {
+      response = await backendFetch(backendUrl, {
         method: 'DELETE',
-        headers: {
-          'Accept': 'application/json',
-          'X-API-Key': API_KEY,
-          'Authorization': `Bearer ${authToken}`,
-        },
-        cache: 'no-store',
+        authToken,
       });
     } catch (fetchError) {
       console.error('[Role API] DELETE Fetch error:', fetchError);

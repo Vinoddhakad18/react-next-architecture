@@ -6,15 +6,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// Backend API URL - can be configured via environment variable
-const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
-const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
+import { BACKEND_API_URL } from '@/lib/api/backendConfig';
+import { backendFetch } from '@/lib/api/backendProxy';
 
 /**
  * GET /api/v1/roles/active/list
  * Fetch list of active roles
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get authentication token from cookies
     const cookieStore = await cookies();
@@ -36,16 +35,10 @@ export async function GET(request: NextRequest) {
 
     let response: Response;
     try {
-      response = await fetch(backendUrl, {
+      response = await backendFetch(backendUrl, {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'X-API-Key': API_KEY,
-          'Authorization': `Bearer ${authToken}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-        },
-        cache: 'no-store',
+        authToken,
+        noCache: true,
       });
     } catch (fetchError) {
       console.error('[Role Active List API] Fetch error:', fetchError);

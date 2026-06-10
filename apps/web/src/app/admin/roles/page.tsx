@@ -57,7 +57,8 @@ export default function RoleManagementPage() {
       const response = await roleService.getRoles(params);
 
       if (response.success && response.data) {
-        const roleListResponse = response.data;
+        // Typed as `any` because the runtime shape is probed defensively below.
+        const roleListResponse: any = response.data;
         
         let rolesArray: Role[] = [];
         let paginationData = {

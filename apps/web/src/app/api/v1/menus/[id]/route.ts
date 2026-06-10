@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
-import { invalidateMenuCache, invalidateMenuCachePattern } from '@/lib/utils/cache';
+import { invalidateMenuCachePattern } from '@/lib/utils/cache';
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
-const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
+import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
 
 /**
  * GET /api/v1/menus/[id]
  * Get a single menu by ID
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -40,7 +39,7 @@ export async function GET(
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'X-API-Key': API_KEY,
+        'X-API-Key': getBackendApiKey(),
         'Authorization': `Bearer ${authToken}`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
@@ -163,7 +162,7 @@ export async function PUT(
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'X-API-Key': API_KEY,
+          'X-API-Key': getBackendApiKey(),
           'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify(requestBody),
@@ -303,7 +302,7 @@ export async function DELETE(
         method: 'DELETE',
         headers: {
           'Accept': 'application/json',
-          'X-API-Key': API_KEY,
+          'X-API-Key': getBackendApiKey(),
           'Authorization': `Bearer ${authToken}`,
         },
         cache: 'no-store',

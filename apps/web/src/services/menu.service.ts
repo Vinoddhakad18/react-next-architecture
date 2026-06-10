@@ -4,9 +4,7 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import type { Menu, MenuListParams, MenuListResponse, ApiResponse } from '@/types/api';
-
-export type { UpdateMenuRequest };
+import type { Menu, MenuListParams, MenuListResponse } from '@/types/api';
 
 export interface CreateMenuRequest {
   name: string;

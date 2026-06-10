@@ -7,14 +7,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 // Backend API URL - can be configured via environment variable
-const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
-const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
+import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
 
 /**
  * GET /api/v1/menus/active/list
  * Fetch list of active menus
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get authentication token from cookies
     const cookieStore = await cookies();
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'X-API-Key': API_KEY,
+          'X-API-Key': getBackendApiKey(),
           'Authorization': `Bearer ${authToken}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',

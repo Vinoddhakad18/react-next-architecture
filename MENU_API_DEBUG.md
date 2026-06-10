@@ -66,7 +66,7 @@ The backend should return:
    - Create/check `.env.local` in `apps/web/`:
      ```
      BACKEND_API_URL=http://localhost:3000
-     API_KEY=czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=
+     API_KEY=your-server-api-key-here
      NEXT_PUBLIC_API_URL=http://localhost:4200
      ```
 

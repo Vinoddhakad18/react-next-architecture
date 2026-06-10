@@ -3,8 +3,7 @@
  * Handles Redis cache invalidation for menu operations
  */
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
-const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
+import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
 
 /**
  * Invalidate menu cache in Redis
@@ -20,7 +19,7 @@ export async function invalidateMenuCache(authToken: string): Promise<boolean> {
       method: 'DELETE',
       headers: {
         'Accept': 'application/json',
-        'X-API-Key': API_KEY,
+        'X-API-Key': getBackendApiKey(),
         'Authorization': `Bearer ${authToken}`,
       },
       cache: 'no-store',
@@ -54,7 +53,7 @@ export async function invalidateMenuCachePattern(authToken: string, pattern: str
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'X-API-Key': API_KEY,
+        'X-API-Key': getBackendApiKey(),
         'Authorization': `Bearer ${authToken}`,
       },
       body: JSON.stringify({ pattern }),

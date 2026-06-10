@@ -28,10 +28,10 @@ export const branchService = {
     }
 
     const endpoint = `${API_ENDPOINTS.BRANCHES.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await apiClient.get<{ success: boolean; message: string; data: { data: any[]; pagination: any } }>(endpoint, { auth: true });
+    const response = await apiClient.get<{ success: boolean; message: string; data: { data: any[]; pagination?: any; meta?: any } }>(endpoint, { auth: true });
 
     if (!response.success || !response.data) {
-      return response as ApiResponse<BranchListResponse>;
+      return response as unknown as ApiResponse<BranchListResponse>;
     }
 
     const payload = response.data;

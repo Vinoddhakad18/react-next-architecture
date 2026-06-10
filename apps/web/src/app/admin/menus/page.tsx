@@ -63,7 +63,8 @@ export default function MenuManagementPage() {
       if (response.success && response.data) {
         // response.data might be the raw backend response: { success, message, data: { data: [...], pagination: {...} } }
         // OR it might be the normalized response: { data: [...], meta: {...} }
-        const menuListResponse = response.data;
+        // Typed as `any` because the runtime shape is probed defensively below.
+        const menuListResponse: any = response.data;
         
         // Handle different response structures
         let menusArray: Menu[] = [];
@@ -345,21 +346,24 @@ export default function MenuManagementPage() {
           // Add the new menu to the list
           // The API might return the menu in different formats, handle both
           let newMenu: Menu;
-          
+
+          // The backend may return camelCase or snake_case keys; probed as `any`.
+          const created: any = response.data;
+
           // Handle different response formats
-          if (response.data.id !== undefined) {
+          if (created.id !== undefined) {
             // Direct Menu object
             newMenu = {
-              id: response.data.id,
-              name: response.data.name || formData.name.trim(),
-              slug: response.data.slug || formData.route.replace(/^\//, '').replace(/\//g, '-'),
-              route: response.data.route || formData.route.trim(),
-              description: response.data.description,
-              sortOrder: response.data.sortOrder ?? response.data.sort_order ?? formData.sort_order,
-              isActive: response.data.isActive ?? response.data.is_active ?? formData.is_active,
-              parentId: response.data.parentId ?? response.data.parent_id ?? formData.parent_id ?? null,
-              createdAt: response.data.createdAt || response.data.created_at || new Date().toISOString(),
-              updatedAt: response.data.updatedAt || response.data.updated_at || new Date().toISOString(),
+              id: created.id,
+              name: created.name || formData.name.trim(),
+              slug: created.slug || formData.route.replace(/^\//, '').replace(/\//g, '-'),
+              route: created.route || formData.route.trim(),
+              description: created.description,
+              sortOrder: created.sortOrder ?? created.sort_order ?? formData.sort_order,
+              isActive: created.isActive ?? created.is_active ?? formData.is_active,
+              parentId: created.parentId ?? created.parent_id ?? formData.parent_id ?? null,
+              createdAt: created.createdAt || created.created_at || new Date().toISOString(),
+              updatedAt: created.updatedAt || created.updated_at || new Date().toISOString(),
             };
           } else {
             // Fallback: create menu from form data
