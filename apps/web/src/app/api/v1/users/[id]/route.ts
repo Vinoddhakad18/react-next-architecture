@@ -3,20 +3,7 @@ import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
-
-function normalizeUser(user: any) {
-  const statusValue = user.status ?? (typeof user.isActive === 'boolean' ? (user.isActive ? 'active' : 'inactive') : 'active');
-
-  return {
-    id: user.id?.toString() ?? String(user.user_id ?? user.id ?? ''),
-    name: user.name ?? user.full_name ?? user.username ?? '',
-    email: user.email ?? '',
-    role: user.role ?? user.user_role ?? '',
-    status: statusValue,
-    createdAt: user.createdAt || user.created_at || new Date().toISOString(),
-    updatedAt: user.updatedAt || user.updated_at || new Date().toISOString(),
-  };
-}
+import { normalizeUser } from '@/lib/utils/normalizeUser';
 
 async function getAuthToken() {
   const cookieStore = await cookies();
