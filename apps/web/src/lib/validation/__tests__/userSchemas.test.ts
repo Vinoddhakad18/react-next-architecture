@@ -23,4 +23,9 @@ describe('updateUserSchema', () => {
     const result = updateUserSchema.safeParse({ name: 'Alice', password: '' });
     expect(result.success).toBe(true);
   });
+
+  it('accepts a partial edit with only name (mobile/role/branches omitted)', () => {
+    const result = updateUserSchema.safeParse({ name: 'Alice' });
+    expect(result.success).toBe(true);
+  });
 });

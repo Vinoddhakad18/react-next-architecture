@@ -187,8 +187,8 @@ export default function UserManagementPage() {
     const candidate: UpdateUserRequest = {
       name: formData.name,
       email: formData.email,
-      mobile: formData.mobile,
       password: formData.password,
+      ...(formData.mobile ? { mobile: formData.mobile } : {}),
       ...(formData.roleId ? { roleId: formData.roleId } : {}),
       ...(formData.branchIds && formData.branchIds.length ? { branchIds: formData.branchIds } : {}),
     };
