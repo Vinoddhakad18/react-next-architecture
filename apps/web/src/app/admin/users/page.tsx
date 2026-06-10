@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from '@/types/api/user';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { userService, roleService, branchService } from '@/services';
-import { createUserSchema } from '@/lib/validation/userSchemas';
+import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas';
 
 export default function UserManagementPage() {
   const [filters, setFilters] = useState<UserListParams>({
@@ -30,10 +30,7 @@ export default function UserManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState<UpdateUserRequest>({
-    name: '',
-    email: '',
-    role: 'user',
-    status: 'active',
+    name: '', email: '', mobile: '', roleId: 0, branchIds: [], password: '',
   });
   const [roleOptions, setRoleOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [branchOptions, setBranchOptions] = useState<Array<{ value: number; label: string }>>([]);
@@ -54,7 +51,7 @@ export default function UserManagementPage() {
       setRoleOptions(roles.map((r) => ({ value: r.id, label: r.name })));
       const branches = branchesRes.data?.data ?? [];
       setBranchOptions(branches.map((b) => ({ value: b.id, label: b.branchName })));
-    })().catch(() => {/* non-fatal: dropdowns simply stay empty */});
+    })().catch((err) => { console.error('[Users] Failed to load roles/branches', err); });
   }, []);
 
   const fetchUsers = useCallback(async () => {
@@ -121,8 +118,10 @@ export default function UserManagementPage() {
     setFormData({
       name: user.name,
       email: user.email,
-      role: user.role,
-      status: user.status || 'active',
+      mobile: user.mobile ?? '',
+      roleId: user.roleId ?? 0,
+      branchIds: user.branchIds ?? [],
+      password: '',
     });
     setSubmitError(null);
     setIsEditModalOpen(true);
@@ -181,55 +180,25 @@ export default function UserManagementPage() {
     }
   };
 
-  const validateForm = () => {
-    const errors: Partial<Record<keyof UpdateUserRequest, string>> = {};
-
-    if (!formData.name?.trim()) {
-      errors.name = 'Name is required';
-    }
-    if (!formData.email?.trim()) {
-      errors.email = 'Email is required';
-    }
-    if (!formData.role?.trim()) {
-      errors.role = 'Role is required';
-    }
-    if (!formData.status?.trim()) {
-      errors.status = 'Status is required';
-    }
-
-    setSubmitError(Object.keys(errors).length ? 'Please fix validation errors' : null);
-    return Object.keys(errors).length === 0;
-  };
-
   const handleSubmitEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!editingUser) return;
 
-    if (!editingUser) {
+    const parsed = updateUserSchema.safeParse(formData);
+    if (!parsed.success) {
+      setSubmitError(parsed.error.issues[0]?.message ?? 'Please fix validation errors');
       return;
     }
 
-    if (!validateForm()) {
-      return;
-    }
+    const { password, ...rest } = parsed.data;
+    const payload: UpdateUserRequest = { ...rest, ...(password ? { password } : {}) };
 
     setIsSubmitting(true);
     setSubmitError(null);
-
     try {
-      const payload: UpdateUserRequest = {
-        name: formData.name?.trim(),
-        email: formData.email?.trim(),
-        role: formData.role?.trim(),
-        status: formData.status?.trim(),
-      };
-
       const response = await userService.updateUser(editingUser.id, payload);
-      if (response.success) {
-        handleCloseEditModal();
-        await fetchUsers();
-      } else {
-        setSubmitError(response.error?.message || 'Failed to update user');
-      }
+      if (response.success) { handleCloseEditModal(); await fetchUsers(); }
+      else { setSubmitError(response.error?.message || 'Failed to update user'); }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
@@ -429,24 +398,40 @@ export default function UserManagementPage() {
             value={formData.email || ''}
             onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
           />
-          <Select
-            label="Role"
-            value={formData.role || 'user'}
-            onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value }))}
-            options={[
-              { value: 'admin', label: 'Admin' },
-              { value: 'user', label: 'User' },
-              { value: 'moderator', label: 'Moderator' },
-            ]}
+          <Input
+            label="Mobile"
+            value={formData.mobile || ''}
+            onChange={(e) => setFormData((prev) => ({ ...prev, mobile: e.target.value }))}
           />
           <Select
-            label="Status"
-            value={formData.status || 'active'}
-            onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value }))}
-            options={[
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-            ]}
+            label="Role"
+            value={formData.roleId || ''}
+            onChange={(e) => setFormData((prev) => ({ ...prev, roleId: Number(e.target.value) }))}
+            options={[{ value: '', label: 'Select a role' }, ...roleOptions]}
+          />
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-slate-700">Branches</legend>
+            {branchOptions.map((b) => (
+              <label key={b.value} className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={(formData.branchIds ?? []).includes(b.value)}
+                  onChange={(e) => setFormData((prev) => ({
+                    ...prev,
+                    branchIds: e.target.checked
+                      ? [...(prev.branchIds ?? []), b.value]
+                      : (prev.branchIds ?? []).filter((id) => id !== b.value),
+                  }))}
+                />
+                {b.label}
+              </label>
+            ))}
+          </fieldset>
+          <Input
+            label="New password (leave blank to keep current)"
+            type="password"
+            value={formData.password || ''}
+            onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
           />
           {submitError ? <p className="text-sm text-rose-500">{submitError}</p> : null}
           <div className="flex justify-end gap-3 pt-2">
