@@ -4,7 +4,7 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import type { ApiResponse } from '@/types/api';
+import type { ApiResponse, PagePermissions } from '@/types/api';
 import type { Branch, BranchListParams, BranchListResponse, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
 
 export const branchService = {
@@ -28,7 +28,7 @@ export const branchService = {
     }
 
     const endpoint = `${API_ENDPOINTS.BRANCHES.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await apiClient.get<{ success: boolean; message: string; data: { data: any[]; pagination?: any; meta?: any } }>(endpoint, { auth: true });
+    const response = await apiClient.get<{ success: boolean; message: string; data: { data: any[]; pagination?: any; meta?: any }; permissions?: PagePermissions }>(endpoint, { auth: true });
 
     if (!response.success || !response.data) {
       return response as unknown as ApiResponse<BranchListResponse>;
@@ -62,6 +62,10 @@ export const branchService = {
           limit: pagination.limit || params?.limit || 10,
           totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(normalizedBranches.length / (pagination.limit || params?.limit || 10)),
         },
+        // Preserve the per-action permissions the backend returns so the page's
+        // usePagePermissions/extractPagePermissions can read them. Without this,
+        // normalization would strip them and all branch actions stay hidden.
+        permissions: response.data.permissions,
       },
     };
   },

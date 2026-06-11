@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Role, RoleListParams } from '@/types/api';
-import { ActionButton, Button, Modal, Input, Checkbox } from '@/components/ui';
+import { ActionButton, Button, Modal, Input, Checkbox, RowActions } from '@/components/ui';
 import { roleService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 
@@ -599,34 +599,14 @@ export default function RoleManagementPage() {
                           {getStatusBadge(role.isActive)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-3">
-                            {permissions.edit && (
-                              <ActionButton
-                                type="button"
-                                action="edit"
-                                size="sm"
-                                onClick={() => handleEditRole(role)}
-                              >
-                                Edit
-                              </ActionButton>
-                            )}
-                            {permissions.delete && role.name !== 'super_admin' && (
-                              <ActionButton
-                                type="button"
-                                action="delete"
-                                size="sm"
-                                onClick={() => handleDeleteClick(role)}
-                                isLoading={deletingRoleId === role.id}
-                                disabled={deletingRoleId === role.id}
-                              >
-                                Delete
-                              </ActionButton>
-                            )}
-                            {!permissions.edit &&
-                              !(permissions.delete && role.name !== 'super_admin') && (
-                                <span className="text-sm text-slate-400">—</span>
-                              )}
-                          </div>
+                          <RowActions
+                            permissions={permissions}
+                            onEdit={() => handleEditRole(role)}
+                            onDelete={() => handleDeleteClick(role)}
+                            canDelete={role.name !== 'super_admin'}
+                            deleteLoading={deletingRoleId === role.id}
+                            className="flex items-center space-x-3"
+                          />
                         </td>
                       </tr>
                     ))}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Menu, MenuListParams } from '@/types/api';
-import { ActionButton, Button, Modal, Input, Select, Checkbox } from '@/components/ui';
+import { ActionButton, Button, Modal, Input, Select, Checkbox, RowActions } from '@/components/ui';
 import { menuService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 
@@ -713,33 +713,13 @@ export default function MenuManagementPage() {
                           {getStatusBadge(menu.isActive)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-3">
-                            {permissions.edit && (
-                              <ActionButton
-                                type="button"
-                                action="edit"
-                                size="sm"
-                                onClick={() => handleEditMenu(menu)}
-                              >
-                                Edit
-                              </ActionButton>
-                            )}
-                            {permissions.delete && (
-                              <ActionButton
-                                type="button"
-                                action="delete"
-                                size="sm"
-                                onClick={() => handleDeleteClick(menu)}
-                                isLoading={deletingMenuId === menu.id}
-                                disabled={deletingMenuId === menu.id}
-                              >
-                                Delete
-                              </ActionButton>
-                            )}
-                            {!permissions.edit && !permissions.delete && (
-                              <span className="text-sm text-slate-400">—</span>
-                            )}
-                          </div>
+                          <RowActions
+                            permissions={permissions}
+                            onEdit={() => handleEditMenu(menu)}
+                            onDelete={() => handleDeleteClick(menu)}
+                            deleteLoading={deletingMenuId === menu.id}
+                            className="flex items-center space-x-3"
+                          />
                         </td>
                       </tr>
                     ))}

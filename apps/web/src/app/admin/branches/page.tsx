@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { Branch, BranchListParams, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
-import { ActionButton, Button, Input, Modal, Select } from '@/components/ui';
+import { ActionButton, Button, Input, Modal, Select, RowActions } from '@/components/ui';
 import { branchService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 
@@ -267,31 +267,11 @@ export default function BranchManagementPage() {
                     <td className="px-6 py-4 text-slate-700">{branch.address}</td>
                     <td className="px-6 py-4 text-slate-700">{branch.status}</td>
                     <td className="px-6 py-4 text-slate-700">
-                      <div className="flex items-center gap-2">
-                        {permissions.edit && (
-                          <ActionButton
-                            type="button"
-                            action="edit"
-                            size="sm"
-                            onClick={() => handleEditBranch(branch)}
-                          >
-                            Edit
-                          </ActionButton>
-                        )}
-                        {permissions.delete && (
-                          <ActionButton
-                            type="button"
-                            action="delete"
-                            size="sm"
-                            onClick={() => handleDeleteClick(branch)}
-                          >
-                            Delete
-                          </ActionButton>
-                        )}
-                        {!permissions.edit && !permissions.delete && (
-                          <span className="text-sm text-slate-400">—</span>
-                        )}
-                      </div>
+                      <RowActions
+                        permissions={permissions}
+                        onEdit={() => handleEditBranch(branch)}
+                        onDelete={() => handleDeleteClick(branch)}
+                      />
                     </td>
                   </tr>
                 ))}

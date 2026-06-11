@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from '@/types/api/user';
-import { Button, Input, Modal, Select } from '@/components/ui';
+import { Button, Input, Modal, Select, RowActions } from '@/components/ui';
 import { userService, roleService, branchService } from '@/services';
 import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
@@ -296,27 +296,12 @@ export default function UserManagementPage() {
                     <td className="px-6 py-4 text-slate-700">{user?.roleName}</td>
                     <td className="px-6 py-4 text-slate-700">{user?.status}</td>
                     <td className="px-6 py-4 text-slate-700">
-                      <div className="flex items-center gap-2">
-                        {permissions.edit && (
-                          <Button type="button" variant="secondary" size="sm" onClick={() => handleEditUser(user)}>
-                            Edit
-                          </Button>
-                        )}
-                        {permissions.delete && user?.roleName !== 'super_admin' && (
-                            <Button
-                              type="button"
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleDeleteClick(user)}
-                            >
-                              Delete
-                            </Button>
-                          )}
-                        {!permissions.edit &&
-                          !(permissions.delete && user?.roleName !== 'super_admin') && (
-                            <span className="text-sm text-slate-400">—</span>
-                          )}
-                      </div>
+                      <RowActions
+                        permissions={permissions}
+                        onEdit={() => handleEditUser(user)}
+                        onDelete={() => handleDeleteClick(user)}
+                        canDelete={user?.roleName !== 'super_admin'}
+                      />
                     </td>
                   </tr>
                 ))}
