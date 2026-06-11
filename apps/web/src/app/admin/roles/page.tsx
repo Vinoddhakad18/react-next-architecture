@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Role, RoleListParams } from '@/types/api';
 import { ActionButton, Button, Modal, Input, Checkbox } from '@/components/ui';
 import { roleService } from '@/services';
+import { usePagePermissions } from '@/hooks/usePagePermissions';
 
 interface RoleFormData {
   name: string;
@@ -42,6 +43,7 @@ export default function RoleManagementPage() {
     is_active: true,
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof RoleFormData, string>>>({});
+  const { permissions, setFromResponse } = usePagePermissions();
 
   // Fetch roles from API
   const fetchRoles = useCallback(async () => {
@@ -57,6 +59,10 @@ export default function RoleManagementPage() {
       const response = await roleService.getRoles(params);
 
       if (response.success && response.data) {
+        // Capture the per-action permissions the listing endpoint returns
+        // alongside the data (view/add/edit/delete/export/status).
+        setFromResponse(response.data);
+
         // Typed as `any` because the runtime shape is probed defensively below.
         const roleListResponse: any = response.data;
         
@@ -158,7 +164,7 @@ export default function RoleManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, searchTerm]);
+  }, [filters, searchTerm, setFromResponse]);
 
   // Fetch roles on mount and when filters change
   useEffect(() => {
@@ -377,16 +383,18 @@ export default function RoleManagementPage() {
               </h1>
               <p className="text-slate-600 mt-1">Manage user roles</p>
             </div>
-            <Button 
-              variant="primary" 
-              onClick={handleOpenModal}
-              className="shadow-lg hover:shadow-xl transition-shadow"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add New Role
-            </Button>
+            {permissions.add && (
+              <Button 
+                variant="primary" 
+                onClick={handleOpenModal}
+                className="shadow-lg hover:shadow-xl transition-shadow"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add New Role
+              </Button>
+            )}
           </div>
         </div>
 
@@ -520,9 +528,11 @@ export default function RoleManagementPage() {
               </div>
               <p className="text-lg font-semibold text-slate-900 mb-2">No roles found</p>
               <p className="text-slate-600 mb-6">Get started by creating your first role</p>
-              <ActionButton type="button" action="add">
-                Add Your First Role
-              </ActionButton>
+              {permissions.add && (
+                <ActionButton type="button" action="add" onClick={handleOpenModal}>
+                  Add Your First Role
+                </ActionButton>
+              )}
             </div>
           ) : (
             <>
@@ -590,15 +600,17 @@ export default function RoleManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-3">
-                            <ActionButton
-                              type="button"
-                              action="edit"
-                              size="sm"
-                              onClick={() => handleEditRole(role)}
-                            >
-                              Edit
-                            </ActionButton>
-                            {role.name !== 'super_admin' && (
+                            {permissions.edit && (
+                              <ActionButton
+                                type="button"
+                                action="edit"
+                                size="sm"
+                                onClick={() => handleEditRole(role)}
+                              >
+                                Edit
+                              </ActionButton>
+                            )}
+                            {permissions.delete && role.name !== 'super_admin' && (
                               <ActionButton
                                 type="button"
                                 action="delete"
@@ -610,6 +622,10 @@ export default function RoleManagementPage() {
                                 Delete
                               </ActionButton>
                             )}
+                            {!permissions.edit &&
+                              !(permissions.delete && role.name !== 'super_admin') && (
+                                <span className="text-sm text-slate-400">—</span>
+                              )}
                           </div>
                         </td>
                       </tr>

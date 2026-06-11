@@ -5,6 +5,7 @@ import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from 
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { userService, roleService, branchService } from '@/services';
 import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas';
+import { usePagePermissions } from '@/hooks/usePagePermissions';
 
 export default function UserManagementPage() {
   const [filters, setFilters] = useState<UserListParams>({
@@ -38,6 +39,7 @@ export default function UserManagementPage() {
   const emptyCreate: CreateUserRequest = { name: '', email: '', password: '', mobile: '', roleId: 0, branchIds: [] };
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createData, setCreateData] = useState<CreateUserRequest>(emptyCreate);
+  const { permissions, setFromResponse } = usePagePermissions();
 
   useEffect(() => {
     (async () => {
@@ -66,6 +68,8 @@ export default function UserManagementPage() {
 
       const response = await userService.getUsers(params);
       if (response.success && response.data) {
+        setFromResponse(response.data);
+
         const payload = response.data as { data:any; meta: { page: number; limit: number; total: number; totalPages: number } };
         const normalizedUsers = Array.isArray(payload?.data?.data)
           ? payload?.data?.data
@@ -94,7 +98,7 @@ export default function UserManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, searchTerm]);
+  }, [filters, searchTerm, setFromResponse]);
 
   useEffect(() => {
     fetchUsers();
@@ -254,7 +258,9 @@ export default function UserManagementPage() {
           />
           <Button onClick={handleSearch} variant="secondary">Search</Button>
           <Button onClick={handleReset} variant="outline">Reset</Button>
-          <Button onClick={handleOpenCreate} variant="primary">Add User</Button>
+          {permissions.add && (
+            <Button onClick={handleOpenCreate} variant="primary">Add User</Button>
+          )}
         </div>
       </div>
 
@@ -291,10 +297,12 @@ export default function UserManagementPage() {
                     <td className="px-6 py-4 text-slate-700">{user?.status}</td>
                     <td className="px-6 py-4 text-slate-700">
                       <div className="flex items-center gap-2">
-                        <Button type="button" variant="secondary" size="sm" onClick={() => handleEditUser(user)}>
-                          Edit
-                        </Button>
-                        {user?.roleName !== 'super_admin' && (
+                        {permissions.edit && (
+                          <Button type="button" variant="secondary" size="sm" onClick={() => handleEditUser(user)}>
+                            Edit
+                          </Button>
+                        )}
+                        {permissions.delete && user?.roleName !== 'super_admin' && (
                             <Button
                               type="button"
                               variant="danger"
@@ -303,6 +311,10 @@ export default function UserManagementPage() {
                             >
                               Delete
                             </Button>
+                          )}
+                        {!permissions.edit &&
+                          !(permissions.delete && user?.roleName !== 'super_admin') && (
+                            <span className="text-sm text-slate-400">—</span>
                           )}
                       </div>
                     </td>

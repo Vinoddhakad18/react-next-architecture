@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { Branch, BranchListParams, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
 import { ActionButton, Button, Input, Modal, Select } from '@/components/ui';
 import { branchService } from '@/services';
+import { usePagePermissions } from '@/hooks/usePagePermissions';
 
 export default function BranchManagementPage() {
   const [filters, setFilters] = useState<BranchListParams>({
@@ -36,6 +37,7 @@ export default function BranchManagementPage() {
   const [editingBranchId, setEditingBranchId] = useState<number | null>(null);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { permissions, setFromResponse } = usePagePermissions();
 
   const fetchBranches = useCallback(async () => {
     setIsLoading(true);
@@ -49,6 +51,7 @@ export default function BranchManagementPage() {
 
       const response = await branchService.getBranches(params);
       if (response.success && response.data) {
+        setFromResponse(response.data);
         setBranches(response.data.data);
         setPagination(response.data.meta);
       } else {
@@ -63,7 +66,7 @@ export default function BranchManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, searchTerm]);
+  }, [filters, searchTerm, setFromResponse]);
 
   useEffect(() => {
     fetchBranches();
@@ -225,9 +228,11 @@ export default function BranchManagementPage() {
           />
           <Button onClick={handleSearch} variant="secondary">Search</Button>
           <Button onClick={handleReset} variant="outline">Reset</Button>
-          <ActionButton type="button" action="add" onClick={handleOpenModal}>
-            Add Branch
-          </ActionButton>
+          {permissions.add && (
+            <ActionButton type="button" action="add" onClick={handleOpenModal}>
+              Add Branch
+            </ActionButton>
+          )}
         </div>
       </div>
 
@@ -263,22 +268,29 @@ export default function BranchManagementPage() {
                     <td className="px-6 py-4 text-slate-700">{branch.status}</td>
                     <td className="px-6 py-4 text-slate-700">
                       <div className="flex items-center gap-2">
-                        <ActionButton
-                          type="button"
-                          action="edit"
-                          size="sm"
-                          onClick={() => handleEditBranch(branch)}
-                        >
-                          Edit
-                        </ActionButton>
-                        <ActionButton
-                          type="button"
-                          action="delete"
-                          size="sm"
-                          onClick={() => handleDeleteClick(branch)}
-                        >
-                          Delete
-                        </ActionButton>
+                        {permissions.edit && (
+                          <ActionButton
+                            type="button"
+                            action="edit"
+                            size="sm"
+                            onClick={() => handleEditBranch(branch)}
+                          >
+                            Edit
+                          </ActionButton>
+                        )}
+                        {permissions.delete && (
+                          <ActionButton
+                            type="button"
+                            action="delete"
+                            size="sm"
+                            onClick={() => handleDeleteClick(branch)}
+                          >
+                            Delete
+                          </ActionButton>
+                        )}
+                        {!permissions.edit && !permissions.delete && (
+                          <span className="text-sm text-slate-400">—</span>
+                        )}
                       </div>
                     </td>
                   </tr>

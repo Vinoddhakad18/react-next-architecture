@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Menu, MenuListParams } from '@/types/api';
 import { ActionButton, Button, Modal, Input, Select, Checkbox } from '@/components/ui';
 import { menuService } from '@/services';
+import { usePagePermissions } from '@/hooks/usePagePermissions';
 
 interface MenuFormData {
   name: string;
@@ -46,6 +47,7 @@ export default function MenuManagementPage() {
     is_active: true,
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof MenuFormData, string>>>({});
+  const { permissions, setFromResponse } = usePagePermissions();
 
   // Fetch menus from API
   const fetchMenus = useCallback(async () => {
@@ -61,6 +63,8 @@ export default function MenuManagementPage() {
       const response = await menuService.getMenus(params);
 
       if (response.success && response.data) {
+        setFromResponse(response.data);
+
         // response.data might be the raw backend response: { success, message, data: { data: [...], pagination: {...} } }
         // OR it might be the normalized response: { data: [...], meta: {...} }
         // Typed as `any` because the runtime shape is probed defensively below.
@@ -168,7 +172,7 @@ export default function MenuManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, searchTerm]);
+  }, [filters, searchTerm, setFromResponse]);
 
   // Fetch menus on mount and when filters change
   useEffect(() => {
@@ -478,14 +482,16 @@ export default function MenuManagementPage() {
               </h1>
               <p className="text-slate-600 mt-1">Manage your application menus and navigation items</p>
             </div>
-            <ActionButton
-              type="button"
-              action="add"
-              className="shadow-lg hover:shadow-xl transition-shadow"
-              onClick={() => handleOpenModal()}
-            >
-              Add New Menu
-            </ActionButton>
+            {permissions.add && (
+              <ActionButton
+                type="button"
+                action="add"
+                className="shadow-lg hover:shadow-xl transition-shadow"
+                onClick={() => handleOpenModal()}
+              >
+                Add New Menu
+              </ActionButton>
+            )}
           </div>
         </div>
 
@@ -619,9 +625,11 @@ export default function MenuManagementPage() {
               </div>
               <p className="text-lg font-semibold text-slate-900 mb-2">No menus found</p>
               <p className="text-slate-600 mb-6">Get started by creating your first menu item</p>
-              <ActionButton type="button" action="add">
-                Add Your First Menu
-              </ActionButton>
+              {permissions.add && (
+                <ActionButton type="button" action="add" onClick={() => handleOpenModal()}>
+                  Add Your First Menu
+                </ActionButton>
+              )}
             </div>
           ) : (
             <>
@@ -706,24 +714,31 @@ export default function MenuManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-3">
-                            <ActionButton
-                              type="button"
-                              action="edit"
-                              size="sm"
-                              onClick={() => handleEditMenu(menu)}
-                            >
-                              Edit
-                            </ActionButton>
-                            <ActionButton
-                              type="button"
-                              action="delete"
-                              size="sm"
-                              onClick={() => handleDeleteClick(menu)}
-                              isLoading={deletingMenuId === menu.id}
-                              disabled={deletingMenuId === menu.id}
-                            >
-                              Delete
-                            </ActionButton>
+                            {permissions.edit && (
+                              <ActionButton
+                                type="button"
+                                action="edit"
+                                size="sm"
+                                onClick={() => handleEditMenu(menu)}
+                              >
+                                Edit
+                              </ActionButton>
+                            )}
+                            {permissions.delete && (
+                              <ActionButton
+                                type="button"
+                                action="delete"
+                                size="sm"
+                                onClick={() => handleDeleteClick(menu)}
+                                isLoading={deletingMenuId === menu.id}
+                                disabled={deletingMenuId === menu.id}
+                              >
+                                Delete
+                              </ActionButton>
+                            )}
+                            {!permissions.edit && !permissions.delete && (
+                              <span className="text-sm text-slate-400">—</span>
+                            )}
                           </div>
                         </td>
                       </tr>
