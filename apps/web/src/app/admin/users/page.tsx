@@ -284,19 +284,26 @@ export default function UserManagementPage() {
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
                 {users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-6 py-4 text-slate-900">{user.name}</td>
-                    <td className="px-6 py-4 text-slate-700">{user.email}</td>
-                    <td className="px-6 py-4 text-slate-700">{user.role}</td>
-                    <td className="px-6 py-4 text-slate-700">{user.status}</td>
+                  <tr key={user?.id}>
+                    <td className="px-6 py-4 text-slate-900">{user?.name}</td>
+                    <td className="px-6 py-4 text-slate-700">{user?.email}</td>
+                    <td className="px-6 py-4 text-slate-700">{user?.roleName}</td>
+                    <td className="px-6 py-4 text-slate-700">{user?.status}</td>
                     <td className="px-6 py-4 text-slate-700">
                       <div className="flex items-center gap-2">
                         <Button type="button" variant="secondary" size="sm" onClick={() => handleEditUser(user)}>
                           Edit
                         </Button>
-                        <Button type="button" variant="danger" size="sm" onClick={() => handleDeleteClick(user)}>
-                          Delete
-                        </Button>
+                        {user?.roleName !== 'super_admin' && (
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeleteClick(user)}
+                            >
+                              Delete
+                            </Button>
+                          )}
                       </div>
                     </td>
                   </tr>
