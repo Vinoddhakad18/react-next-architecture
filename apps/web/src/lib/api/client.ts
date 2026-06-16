@@ -100,7 +100,7 @@ class ApiClient {
     const {
       method = 'GET',
       body,
-      headers = {},
+      headers = apiConfig.headers,
       auth = false,
       timeout = apiConfig.timeout,
       _skipRefresh = false,

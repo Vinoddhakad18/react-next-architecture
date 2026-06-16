@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow access to login page without authentication
-  const isLoginPage = pathname === '/admin/login';
+  const isLoginPage = pathname === '/login';
 
   // Redirect authenticated users away from login page
   if (token && isLoginPage) {
