@@ -5,17 +5,15 @@
 
 import { tokenManager } from '@/lib/auth/TokenManager';
 
-const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
-const API_KEY = process.env.API_KEY || '';
-console.log('API Base URL:', API_BASE_URL);
-console.log('API Key:', API_KEY);
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
 export const apiConfig = {
   baseUrl: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    ...(API_KEY && { 'X-API-Key': API_KEY }),
+    'X-API-Key': API_KEY ? API_KEY : undefined,
   },
 } as const;
 
