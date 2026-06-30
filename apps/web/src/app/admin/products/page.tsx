@@ -1,19 +1,23 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { User, UserListParams, UpdateUserRequest } from '@/types/api/user';
-import { Button, Input, Modal, Select } from '@/components/ui';
-import { userService } from '@/services';
+import type {
+  Product,
+  ProductListParams,
+  UpdateProductRequest,
+} from '@/types/api/product';
+import { Button, Checkbox, Input, Modal, Select } from '@/components/ui';
+import { productService } from '@/services';
 
-export default function UserManagementPage() {
-  const [filters, setFilters] = useState<UserListParams>({
+export default function ProductsManagementPage() {
+  const [filters, setFilters] = useState<ProductListParams>({
     page: 1,
     limit: 10,
-    sortBy: 'name',
+    sortBy: 'id',
     sortOrder: 'ASC',
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
+  const [items, setItems] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
@@ -24,54 +28,54 @@ export default function UserManagementPage() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingItem, setEditingItem] = useState<Product | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof UpdateUserRequest, string>>>({});
-  const [formData, setFormData] = useState<UpdateUserRequest>({
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof UpdateProductRequest, string>>>({});
+  const [formData, setFormData] = useState<UpdateProductRequest>({
     name: '',
-    email: '',
-    role: 'user',
-    status: 'active',
+    price: 0,
+    status: ''
+    
   });
 
-  const fetchUsers = useCallback(async () => {
+  const fetchItems = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const params: UserListParams = {
+      const params: ProductListParams = {
         ...filters,
         ...(searchTerm ? { search: searchTerm } : {}),
       };
+      const response = await productService.getProducts(params);
 
-      const response = await userService.getUsers(params);
       if (response.success && response.data) {
         const payload = response.data as unknown as { data?: unknown; meta?: any };
-        const normalizedUsers = Array.isArray(payload.data)
+        const normalized = Array.isArray(payload.data)
           ? payload.data
           : Array.isArray(response.data)
           ? response.data
           : [];
 
-        setUsers(normalizedUsers as User[]);
+        setItems(normalized as Product[]);
         setPagination(
           payload.meta ?? {
             page: params.page || 1,
             limit: params.limit || 10,
-            total: normalizedUsers.length,
-            totalPages: Math.max(1, Math.ceil(normalizedUsers.length / (params.limit || 10))),
+            total: normalized.length,
+            totalPages: Math.max(1, Math.ceil(normalized.length / (params.limit || 10))),
           }
         );
       } else {
-        setUsers([]);
+        setItems([]);
         setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
-        setError(response.error?.message || 'Failed to load users');
+        setError(response.error?.message || 'Failed to load items');
       }
     } catch (err) {
-      setUsers([]);
+      setItems([]);
       setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
@@ -80,8 +84,8 @@ export default function UserManagementPage() {
   }, [filters, searchTerm]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchItems();
+  }, [fetchItems]);
 
   const handleSearch = () => {
     setFilters((prev) => ({ ...prev, page: 1 }));
@@ -89,7 +93,7 @@ export default function UserManagementPage() {
 
   const handleReset = () => {
     setSearchTerm('');
-    setFilters({ page: 1, limit: 10, sortBy: 'name', sortOrder: 'ASC' });
+    setFilters({ page: 1, limit: 10, sortBy: 'id', sortOrder: 'ASC' });
   };
 
   const handlePageChange = (page: number) => {
@@ -98,26 +102,26 @@ export default function UserManagementPage() {
 
   const handleOpenCreateModal = () => {
     setIsEditMode(false);
-    setEditingUser(null);
+    setEditingItem(null);
     setFormData({
       name: '',
-      email: '',
-      role: 'user',
-      status: 'active',
+      price: 0,
+      status: ''
+      
     });
     setFormErrors({});
     setSubmitError(null);
     setIsModalOpen(true);
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditItem = (item: Product) => {
     setIsEditMode(true);
-    setEditingUser(user);
+    setEditingItem(item);
     setFormData({
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status || 'active',
+      name: item.name as any,
+      price: item.price as any,
+      status: item.status as any
+      
     });
     setFormErrors({});
     setSubmitError(null);
@@ -127,50 +131,58 @@ export default function UserManagementPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setIsEditMode(false);
-    setEditingUser(null);
+    setEditingItem(null);
     setFormErrors({});
     setSubmitError(null);
   };
 
-  const handleDeleteClick = (user: User) => {
-    setUserToDelete(user);
+  const handleDeleteClick = (item: Product) => {
+    setItemToDelete(item);
     setSubmitError(null);
     setIsDeleteModalOpen(true);
   };
 
   const handleCloseDeleteModal = () => {
-    setUserToDelete(null);
+    setItemToDelete(null);
     setIsDeleteModalOpen(false);
     setSubmitError(null);
   };
 
   const validateForm = () => {
-    const errors: Partial<Record<keyof UpdateUserRequest, string>> = {};
+    const errors: Partial<Record<keyof UpdateProductRequest, string>> = {};
 
-    if (!formData.name?.trim()) {
+    
+    const nameValue = formData.name;
+    
+    if (nameValue === undefined || nameValue === null || nameValue.toString().trim() === '') {
       errors.name = 'Name is required';
     }
-    if (!formData.email?.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      errors.email = 'Email is invalid';
+    
+    
+    const priceValue = formData.price;
+    
+    if (priceValue === undefined || priceValue === null || priceValue.toString().trim() === '') {
+      errors.price = 'Price is required';
     }
-    if (!formData.role?.trim()) {
-      errors.role = 'Role is required';
-    }
-    if (!formData.status?.trim()) {
+    
+    
+    const statusValue = formData.status;
+    
+    if (statusValue === undefined || statusValue === null || statusValue.toString().trim() === '') {
       errors.status = 'Status is required';
     }
+    
+    
 
     setFormErrors(errors);
-    setSubmitError(Object.keys(errors).length ? 'Please fix validation errors' : null);
+    setSubmitError(Object.keys(errors).length ? 'Please fix validation errors.' : null);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmitUser = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (isEditMode && !editingUser) {
+    if (isEditMode && !editingItem) {
       return;
     }
 
@@ -183,21 +195,21 @@ export default function UserManagementPage() {
 
     try {
       const payload = {
-        name: formData.name?.trim() ?? '',
-        email: formData.email?.trim() ?? '',
-        role: formData.role?.trim() ?? '',
-        status: formData.status?.trim() ?? '',
+        name: formData.name,
+        price: formData.price,
+        status: formData.status
+        
       };
 
-      const response = isEditMode && editingUser
-        ? await userService.updateUser(editingUser.id, payload)
-        : await userService.createUser(payload);
+      const response = isEditMode && editingItem
+        ? await productService.updateProduct(editingItem.id as string, payload)
+        : await productService.createProduct(payload);
 
       if (response.success) {
         handleCloseModal();
-        await fetchUsers();
+        await fetchItems();
       } else {
-        setSubmitError(response.error?.message || `Failed to ${isEditMode ? 'update' : 'create'} user`);
+        setSubmitError(response.error?.message || `Failed to ${isEditMode ? 'update' : 'create'} item.`);
       }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -206,8 +218,8 @@ export default function UserManagementPage() {
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!userToDelete) {
+  const handleDeleteItem = async () => {
+    if (!itemToDelete) {
       return;
     }
 
@@ -215,12 +227,13 @@ export default function UserManagementPage() {
     setSubmitError(null);
 
     try {
-      const response = await userService.deleteUser(userToDelete.id);
+      const response = await productService.deleteProduct(itemToDelete.id as string);
+
       if (response.success) {
         handleCloseDeleteModal();
-        await fetchUsers();
+        await fetchItems();
       } else {
-        setSubmitError(response.error?.message || 'Failed to delete user');
+        setSubmitError(response.error?.message || 'Failed to delete item.');
       }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -233,59 +246,65 @@ export default function UserManagementPage() {
     <div className="p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">User Management</h1>
-          <p className="mt-1 text-sm text-slate-500">View, edit, and soft delete users.</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Product Management</h1>
+          <p className="mt-1 text-sm text-slate-500">View, create, update, and delete products.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search users"
+            placeholder="Search products"
             className="min-w-[240px]"
           />
           <Button onClick={handleSearch} variant="secondary">Search</Button>
           <Button onClick={handleReset} variant="outline">Reset</Button>
-          <Button onClick={handleOpenCreateModal} variant="primary">Add User</Button>
+          <Button onClick={handleOpenCreateModal} variant="primary">Add Product</Button>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <div className="text-sm font-medium text-slate-700">User list</div>
+          <div className="text-sm font-medium text-slate-700">Product list</div>
           <div className="text-sm text-slate-500">Page {pagination.page} of {pagination.totalPages || 1}</div>
         </div>
 
         {isLoading ? (
-          <div className="px-6 py-12 text-center text-sm text-slate-500">Loading users...</div>
+          <div className="px-6 py-12 text-center text-sm text-slate-500">Loading products...</div>
         ) : error ? (
           <div className="px-6 py-12 text-center text-sm text-rose-500">{error}</div>
-        ) : users.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-slate-500">No users found.</div>
+        ) : items.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-slate-500">No products found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-6 py-3 font-medium text-slate-700">Name</th>
-                  <th className="px-6 py-3 font-medium text-slate-700">Email</th>
-                  <th className="px-6 py-3 font-medium text-slate-700">Role</th>
-                  <th className="px-6 py-3 font-medium text-slate-700">Status</th>
+                  <th className="px-6 py-3 font-medium text-slate-700">Name</th><th className="px-6 py-3 font-medium text-slate-700">Price</th><th className="px-6 py-3 font-medium text-slate-700">Status</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-6 py-4 text-slate-900">{user.name}</td>
-                    <td className="px-6 py-4 text-slate-700">{user.email}</td>
-                    <td className="px-6 py-4 text-slate-700">{user.role}</td>
-                    <td className="px-6 py-4 text-slate-700">{user.status}</td>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    
+                    <td className="px-6 py-4 text-slate-700">
+                      {typeof item.name === 'boolean' ? (item.name ? 'Yes' : 'No') : item.name}
+                    </td>
+                    
+                    <td className="px-6 py-4 text-slate-700">
+                      {typeof item.price === 'boolean' ? (item.price ? 'Yes' : 'No') : item.price}
+                    </td>
+                    
+                    <td className="px-6 py-4 text-slate-700">
+                      {typeof item.status === 'boolean' ? (item.status ? 'Yes' : 'No') : item.status}
+                    </td>
+                    
                     <td className="px-6 py-4 text-slate-700">
                       <div className="flex items-center gap-2">
-                        <Button type="button" variant="secondary" size="sm" onClick={() => handleEditUser(user)}>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => handleEditItem(item)}>
                           Edit
                         </Button>
-                        <Button type="button" variant="danger" size="sm" onClick={() => handleDeleteClick(user)}>
+                        <Button type="button" variant="danger" size="sm" onClick={() => handleDeleteClick(item)}>
                           Delete
                         </Button>
                       </div>
@@ -301,7 +320,7 @@ export default function UserManagementPage() {
           <div className="text-sm text-slate-600">
             Showing <span className="font-semibold text-slate-900">{Math.min((pagination.page - 1) * pagination.limit + 1, pagination.total || 0)}</span> to{' '}
             <span className="font-semibold text-slate-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
-            <span className="font-semibold text-slate-900">{pagination.total}</span> users
+            <span className="font-semibold text-slate-900">{pagination.total}</span> products
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -325,71 +344,74 @@ export default function UserManagementPage() {
         </div>
       </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        title={isEditMode ? 'Edit User' : 'Add User'}
-        size="md"
-      >
-        <form onSubmit={handleSubmitUser} className="space-y-4">
-          <Input
-            label="Name"
-            value={formData.name || ''}
-            error={formErrors.name}
-            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={formData.email || ''}
-            error={formErrors.email}
-            onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-          />
-          <Select
-            label="Role"
-            value={formData.role || 'user'}
-            error={formErrors.role}
-            onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value }))}
-            options={[
-              { value: 'admin', label: 'Admin' },
-              { value: 'user', label: 'User' },
-              { value: 'moderator', label: 'Moderator' },
-            ]}
-          />
-          <Select
-            label="Status"
-            value={formData.status || 'active'}
-            error={formErrors.status}
-            onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value }))}
-            options={[
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-            ]}
-          />
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={isEditMode ? 'Edit Product' : 'Add Product'} size="md">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
+            
+              <Input
+                label="Name"
+                type="text"
+                value={formData.name?.toString() || ''}
+                error={formErrors.name}
+                onChange={(e) => setFormData((prev) => ({
+                  ...prev,
+                  name: e.target.value,
+                }))}
+              />
+            
+          
+            
+              <Input
+                label="Price"
+                type="number"
+                value={formData.price?.toString() || ''}
+                error={formErrors.price}
+                onChange={(e) => setFormData((prev) => ({
+                  ...prev,
+                  price: e.target.value === "" ? undefined : Number(e.target.value),
+                }))}
+              />
+            
+          
+            
+              <Select
+                label="Status"
+                value={formData.status || ''}
+                error={formErrors.status}
+                onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value }))}
+                options={[
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' }
+                  
+                ]}
+              />
+            
+          
+
           {submitError ? <p className="text-sm text-rose-500">{submitError}</p> : null}
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={handleCloseModal} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" isLoading={isSubmitting}>
-              {isEditMode ? 'Update User' : 'Create User'}
+              {isEditMode ? 'Update Product' : 'Create Product'}
             </Button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={isDeleteModalOpen} onClose={handleCloseDeleteModal} title="Delete User" size="sm">
+      <Modal isOpen={isDeleteModalOpen} onClose={handleCloseDeleteModal} title={'Delete Product'} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-slate-700">
-            Are you sure you want to soft delete{' '}
-            <span className="font-semibold">{userToDelete?.name}</span>?
+            Are you sure you want to delete{' '}
+            <span className="font-semibold">{itemToDelete?.id}</span>?
           </p>
           {submitError ? <p className="text-sm text-rose-500">{submitError}</p> : null}
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={handleCloseDeleteModal} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="button" variant="danger" isLoading={isSubmitting} onClick={handleDeleteUser}>
+            <Button type="button" variant="danger" isLoading={isSubmitting} onClick={handleDeleteItem}>
               Delete
             </Button>
           </div>

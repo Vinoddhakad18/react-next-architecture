@@ -30,6 +30,13 @@ export interface UserListResponse {
   };
 }
 
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
 export interface UpdateUserRequest {
   name?: string;
   email?: string;

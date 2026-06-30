@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3000';
 const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || 'czVtZWFyY2hfa2V5LHRlc3Rfa2V5XzEyMyxkZXZfdGVzdF9rZXk=';
@@ -25,6 +26,95 @@ function normalizePagination(pagination: any, page: number, limit: number, total
     limit: pagination?.limit ?? limit,
     totalPages: pagination?.totalPages ?? pagination?.total_pages ?? Math.ceil(total / limit),
   };
+}
+
+async function getAuthToken() {
+  const cookieStore = await cookies();
+  return cookieStore.get('authToken')?.value;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const csrfValidation = await validateCsrfFromRequest(request);
+    if (!csrfValidation.isValid) {
+      return createCsrfErrorResponse();
+    }
+
+    const authToken = await getAuthToken();
+    if (!authToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unauthorized',
+          error: 'Authentication token is required',
+        },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const backendUrl = `${BACKEND_API_URL}/api/v1/users`;
+
+    let response: Response;
+    try {
+      response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': API_KEY,
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+      });
+    } catch (fetchError) {
+      console.error('[Users API POST] Fetch error:', fetchError);
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Failed to connect to backend API',
+          error: fetchError instanceof Error ? fetchError.message : 'Network error',
+        },
+        { status: 503 }
+      );
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText || 'Failed to create user' };
+      }
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: errorData.message || 'Failed to create user',
+          error: errorData,
+        },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    const rawUser = data?.data ?? data;
+    const normalizedUser = normalizeUser(rawUser);
+
+    return NextResponse.json(normalizedUser, { status: 201 });
+  } catch (error) {
+    console.error('[Users API POST] Error:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function GET(request: NextRequest) {

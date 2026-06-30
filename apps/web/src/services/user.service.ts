@@ -4,7 +4,7 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import type { User, UserListParams, UserListResponse, UpdateUserRequest } from '@/types/api/user';
+import type { CreateUserRequest, User, UserListParams, UserListResponse, UpdateUserRequest } from '@/types/api/user';
 
 export const userService = {
   async getUsers(params?: UserListParams) {
@@ -28,6 +28,14 @@ export const userService = {
 
     const endpoint = `${API_ENDPOINTS.USERS.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return apiClient.get<UserListResponse>(endpoint, { auth: true });
+  },
+
+  async createUser(user: CreateUserRequest) {
+    return apiClient.post<User, CreateUserRequest>(
+      API_ENDPOINTS.USERS.CREATE,
+      user,
+      { auth: true }
+    );
   },
 
   async updateUser(id: string, user: UpdateUserRequest) {
