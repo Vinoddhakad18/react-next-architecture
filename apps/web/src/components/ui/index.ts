@@ -7,6 +7,7 @@ export { ActionButton, type ActionButtonProps } from './ActionButton';
 export { RowActions, type RowActionsProps } from './RowActions';
 export { Input, type InputProps } from './Input';
 export { Select, type SelectProps } from './Select';
+export { BranchTreeSelect, type BranchTreeSelectProps } from './BranchTreeSelect';
 export { Checkbox, type CheckboxProps } from './Checkbox';
 export { Modal, type ModalProps } from './Modal';
 export {

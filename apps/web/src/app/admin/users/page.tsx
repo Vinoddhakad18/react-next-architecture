@@ -2,7 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from '@/types/api/user';
-import { Button, Input, Modal, Select, RowActions } from '@/components/ui';
+import type { BranchTreeNode } from '@/types/api/branch';
+import { Button, Input, Modal, Select, RowActions, BranchTreeSelect } from '@/components/ui';
 import { userService, roleService, branchService } from '@/services';
 import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
@@ -34,7 +35,7 @@ export default function UserManagementPage() {
     name: '', email: '', mobile: '', roleId: 0, branchIds: [], password: '',
   });
   const [roleOptions, setRoleOptions] = useState<Array<{ value: number; label: string }>>([]);
-  const [branchOptions, setBranchOptions] = useState<Array<{ value: number; label: string }>>([]);
+  const [branchTree, setBranchTree] = useState<BranchTreeNode[]>([]);
 
   const emptyCreate: CreateUserRequest = { name: '', email: '', password: '', mobile: '', roleId: 0, branchIds: [] };
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -45,14 +46,16 @@ export default function UserManagementPage() {
     (async () => {
       const [rolesRes, branchesRes] = await Promise.all([
         roleService.getActiveRoles(),
-        branchService.getBranches({ page: 1, limit: 100 }),
+        branchService.getBranchTree(true),
       ]);
       const roles: any[] = Array.isArray(rolesRes.data)
         ? rolesRes.data
         : (rolesRes.data as any)?.data ?? [];
       setRoleOptions(roles.map((r) => ({ value: r.id, label: r.name })));
-      const branches = branchesRes.data?.data ?? [];
-      setBranchOptions(branches.map((b) => ({ value: b.id, label: b.branchName })));
+      const tree = Array.isArray(branchesRes.data)
+        ? branchesRes.data
+        : (branchesRes.data as any)?.data ?? [];
+      setBranchTree(tree);
     })().catch((err) => { console.error('[Users] Failed to load roles/branches', err); });
   }, []);
 
@@ -368,24 +371,12 @@ export default function UserManagementPage() {
             onChange={(e) => setCreateData((p) => ({ ...p, roleId: Number(e.target.value) }))}
             options={[{ value: '', label: 'Select a role' }, ...roleOptions]}
           />
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-slate-700">Branches</legend>
-            {branchOptions.map((b) => (
-              <label key={b.value} className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={createData.branchIds.includes(b.value)}
-                  onChange={(e) => setCreateData((p) => ({
-                    ...p,
-                    branchIds: e.target.checked
-                      ? [...p.branchIds, b.value]
-                      : p.branchIds.filter((id) => id !== b.value),
-                  }))}
-                />
-                {b.label}
-              </label>
-            ))}
-          </fieldset>
+          <BranchTreeSelect
+            label="Branches"
+            tree={branchTree}
+            selectedIds={createData.branchIds}
+            onChange={(branchIds) => setCreateData((p) => ({ ...p, branchIds }))}
+          />
           {submitError ? <p className="text-sm text-rose-500">{submitError}</p> : null}
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={handleCloseCreate} disabled={isSubmitting}>
@@ -422,24 +413,12 @@ export default function UserManagementPage() {
             onChange={(e) => setFormData((prev) => ({ ...prev, roleId: Number(e.target.value) }))}
             options={[{ value: '', label: 'Select a role' }, ...roleOptions]}
           />
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-slate-700">Branches</legend>
-            {branchOptions.map((b) => (
-              <label key={b.value} className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={(formData.branchIds ?? []).includes(b.value)}
-                  onChange={(e) => setFormData((prev) => ({
-                    ...prev,
-                    branchIds: e.target.checked
-                      ? [...(prev.branchIds ?? []), b.value]
-                      : (prev.branchIds ?? []).filter((id) => id !== b.value),
-                  }))}
-                />
-                {b.label}
-              </label>
-            ))}
-          </fieldset>
+          <BranchTreeSelect
+            label="Branches"
+            tree={branchTree}
+            selectedIds={formData.branchIds ?? []}
+            onChange={(branchIds) => setFormData((prev) => ({ ...prev, branchIds }))}
+          />
           <Input
             label="New password (leave blank to keep current)"
             type="password"

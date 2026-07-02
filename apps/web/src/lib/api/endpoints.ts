@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
   // Branches
   BRANCHES: {
     LIST: '/api/v1/branches',
+    TREE: '/api/v1/branches/tree',
     CREATE: '/api/v1/branches',
     GET: (id: number) => `/api/v1/branches/${id}`,
     UPDATE: (id: number) => `/api/v1/branches/${id}`,

@@ -10,6 +10,16 @@ export interface Branch {
   status: string;
 }
 
+export interface BranchTreeNode {
+  id: number;
+  branchName: string;
+  branchCode: string;
+  address: string;
+  parentId: number | null;
+  status: string;
+  children: BranchTreeNode[];
+}
+
 export interface BranchListParams {
   page?: number;
   limit?: number;

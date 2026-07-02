@@ -5,7 +5,7 @@
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
 import type { ApiResponse, PagePermissions } from '@/types/api';
-import type { Branch, BranchListParams, BranchListResponse, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
+import type { Branch, BranchListParams, BranchListResponse, BranchTreeNode, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
 
 export const branchService = {
   async getBranches(params?: BranchListParams) {
@@ -68,6 +68,16 @@ export const branchService = {
         permissions: response.data.permissions,
       },
     };
+  },
+
+  async getBranchTree(activeOnly = true) {
+    const queryParams = new URLSearchParams();
+    if (activeOnly) {
+      queryParams.append('active_only', 'true');
+    }
+
+    const endpoint = `${API_ENDPOINTS.BRANCHES.TREE}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiClient.get<{ success: boolean; message: string; data: BranchTreeNode[] }>(endpoint, { auth: true });
   },
 
   async createBranch(branch: CreateBranchRequest) {
