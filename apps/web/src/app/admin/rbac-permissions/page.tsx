@@ -14,6 +14,7 @@ interface Permission {
   delete: boolean;
   export: boolean;
   status: boolean;
+  approval: boolean;
 }
 
 interface RolePermissions {
@@ -28,6 +29,7 @@ interface PermissionPayload {
   delete: number; // 1 for true, 0 for false
   export: number; // 1 for true, 0 for false
   status: number; // 1 for true, 0 for false
+  approval: number; // 1 for true, 0 for false
 }
 
 interface SavePermissionsRequest {
@@ -43,6 +45,7 @@ interface ApiPermissionResponse {
   delete: number; // 1 for true, 0 for false
   export: number; // 1 for true, 0 for false
   status: number; // 1 for true, 0 for false
+  approval: number; // 1 for true, 0 for false
 }
 
 interface ApiPermissionsResponse {
@@ -92,6 +95,7 @@ const sanitizePermission = (perm: Permission | Partial<Permission>): Permission 
     delete: toStrictBoolean(perm.delete),
     export: toStrictBoolean(perm.export),
     status: toStrictBoolean(perm.status),
+    approval: toStrictBoolean(perm.approval),
   };
 };
 
@@ -135,6 +139,7 @@ const validatePermissionsPayload = (
       delete: booleanToNumber(sanitized.delete),
       export: booleanToNumber(sanitized.export),
       status: booleanToNumber(sanitized.status),
+      approval: booleanToNumber(sanitized.approval),
     };
 
     permissionsPayload.push(validated);
@@ -267,6 +272,7 @@ export default function RBACPermissionsPage() {
               delete: false,
               export: false,
               status: false,
+              approval: false,
             };
           });
 
@@ -288,6 +294,7 @@ export default function RBACPermissionsPage() {
                   delete: Number(apiPerms.delete) === 1,
                   export: Number(apiPerms.export) === 1,
                   status: Number(apiPerms.status) === 1,
+                  approval: Number(apiPerms.approval) === 1,
                 };
                 
                 console.log('[RBAC Permissions] Converted permissions for menuId', item.menuId, ':', convertedPerms);
@@ -353,6 +360,7 @@ export default function RBACPermissionsPage() {
         delete: false,
         export: false,
         status: false,
+        approval: false,
       };
 
       return {
@@ -378,6 +386,7 @@ export default function RBACPermissionsPage() {
         delete: booleanValue,
         export: booleanValue,
         status: booleanValue,
+        approval: booleanValue,
       },
     }));
   };
@@ -395,6 +404,7 @@ export default function RBACPermissionsPage() {
         delete: booleanValue,
         export: booleanValue,
         status: booleanValue,
+        approval: booleanValue,
       };
     });
     setPermissions(newPermissions);
@@ -430,7 +440,8 @@ export default function RBACPermissionsPage() {
           typeof perm.edit !== 'number' || (perm.edit !== 0 && perm.edit !== 1) ||
           typeof perm.delete !== 'number' || (perm.delete !== 0 && perm.delete !== 1) ||
           typeof perm.export !== 'number' || (perm.export !== 0 && perm.export !== 1) ||
-          typeof perm.status !== 'number' || (perm.status !== 0 && perm.status !== 1)
+          typeof perm.status !== 'number' || (perm.status !== 0 && perm.status !== 1) ||
+          typeof perm.approval !== 'number' || (perm.approval !== 0 && perm.approval !== 1)
         );
       });
 
@@ -472,6 +483,7 @@ export default function RBACPermissionsPage() {
                 delete: Number(apiPerms.delete) === 1,
                 export: Number(apiPerms.export) === 1,
                 status: Number(apiPerms.status) === 1,
+                approval: Number(apiPerms.approval) === 1,
               };
             }
           });
@@ -519,6 +531,7 @@ export default function RBACPermissionsPage() {
         delete: false,
         export: false,
         status: false,
+        approval: false,
       };
     }
     // Ensure all values are strict booleans
@@ -533,7 +546,8 @@ export default function RBACPermissionsPage() {
       menuPerms.edit &&
       menuPerms.delete &&
       menuPerms.export &&
-      menuPerms.status
+      menuPerms.status &&
+      menuPerms.approval
     );
   };
 
@@ -545,7 +559,8 @@ export default function RBACPermissionsPage() {
       menuPerms.edit ||
       menuPerms.delete ||
       menuPerms.export ||
-      menuPerms.status
+      menuPerms.status ||
+      menuPerms.approval
     );
   };
 
@@ -729,6 +744,9 @@ export default function RBACPermissionsPage() {
                   <th className="px-4 py-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Approval
+                  </th>
                   <th className="px-6 py-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Select All
                   </th>
@@ -737,7 +755,7 @@ export default function RBACPermissionsPage() {
               <tbody className="divide-y divide-slate-100">
                 {isLoadingPermissions ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-12 text-center">
+                    <td colSpan={10} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-3"></div>
                         <p className="text-slate-600 text-sm">Loading permissions...</p>
@@ -855,6 +873,19 @@ export default function RBACPermissionsPage() {
                           className="w-5 h-5 mx-auto"
                         />
                       </td>
+                      <td className="px-4 py-4 text-center">
+                        <Checkbox
+                          checked={menuPerms.approval}
+                          onChange={(e) =>
+                            handlePermissionChange(
+                              menu.id,
+                              'approval',
+                              e.target.checked
+                            )
+                          }
+                          className="w-5 h-5 mx-auto"
+                        />
+                      </td>
                       <td className="px-6 py-4 text-center">
                         <button
                           onClick={() =>
@@ -937,7 +968,8 @@ export default function RBACPermissionsPage() {
                       (perm.edit ? 1 : 0) +
                       (perm.delete ? 1 : 0) +
                       (perm.export ? 1 : 0) +
-                      (perm.status ? 1 : 0),
+                      (perm.status ? 1 : 0) +
+                      (perm.approval ? 1 : 0),
                     0
                   )}
                 </p>

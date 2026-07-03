@@ -4,7 +4,13 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { parseUserListResponse } from '@/lib/users/parseUserListResponse';
+import { normalizeUser } from '@/lib/utils/normalizeUser';
 import type { User, UserListParams, UserListResponse, CreateUserRequest, UpdateUserRequest } from '@/types/api/user';
+import type { ApiResponse } from '@/types/api';
+
+export { normalizeUser } from '@/lib/utils/normalizeUser';
 
 export const userService = {
   async createUser(user: CreateUserRequest) {
@@ -15,7 +21,7 @@ export const userService = {
     );
   },
 
-  async getUsers(params?: UserListParams) {
+  async getUsers(params?: UserListParams): Promise<ApiResponse<UserListResponse>> {
     const queryParams = new URLSearchParams();
 
     if (params?.page) {
@@ -35,7 +41,17 @@ export const userService = {
     }
 
     const endpoint = `${API_ENDPOINTS.USERS.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    return apiClient.get<UserListResponse>(endpoint, { auth: true });
+    const response = await apiClient.get<unknown>(endpoint, { auth: true });
+
+    if (!response.success || response.data == null) {
+      return response as ApiResponse<UserListResponse>;
+    }
+
+    return {
+      success: true,
+      error: null,
+      data: parseUserListResponse(response.data),
+    };
   },
 
   async updateUser(id: string, user: UpdateUserRequest) {
@@ -51,5 +67,23 @@ export const userService = {
       API_ENDPOINTS.USERS.DELETE(id),
       { auth: true }
     );
+  },
+
+  /** Approve a maker-checker request by approval request ID. */
+  async approveUserRequest(requestId: number) {
+    return approveEntity(API_ENDPOINTS.APPROVALS.APPROVE(requestId));
+  },
+
+  /** Reject a maker-checker request by approval request ID. */
+  async rejectUserRequest(requestId: number, reason?: string) {
+    return rejectEntity(API_ENDPOINTS.APPROVALS.REJECT(requestId), reason);
+  },
+
+  async toggleUserStatus(id: string, active: boolean) {
+    return toggleEntityStatus(API_ENDPOINTS.USERS.STATUS(id), active);
+  },
+
+  async exportUsers() {
+    return downloadEntityExport(API_ENDPOINTS.USERS.EXPORT, 'users-export.csv');
   },
 };

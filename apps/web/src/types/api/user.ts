@@ -2,16 +2,42 @@
  * User API Types
  */
 
+import type { ApprovalStatus } from './common';
+import type { PagePermissions } from './permission';
+
+/** Nested approval payload returned on each user in the list API. */
+export interface UserApprovalInfo {
+  hasPending: boolean;
+  requestId?: number;
+  requestNo?: string;
+  action?: string;
+  status?: string;
+  makerId?: number;
+  makerName?: string;
+  makerEmail?: string;
+  submittedAt?: string;
+  changedFields?: string[];
+  proposedData?: Record<string, unknown>;
+  previousData?: Record<string, unknown>;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: string;
+  roleName?: string;
   status: string;
-  // Optional richer fields (present when the backend returns them).
+  approvalStatus?: ApprovalStatus;
+  approval?: UserApprovalInfo;
+  /** True when this row is a pending CREATE approval (from pendingCreates). */
+  isPendingCreate?: boolean;
   mobile?: string;
   roleId?: number;
+  branchId?: number;
+  branchName?: string;
   branchIds?: number[];
+  branches?: unknown[];
   createdAt: string;
   updatedAt: string;
 }
@@ -24,14 +50,18 @@ export interface UserListParams {
   search?: string;
 }
 
+export interface UserListMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface UserListResponse {
   data: User[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+  pendingCreates?: User[];
+  meta: UserListMeta;
+  permissions?: PagePermissions;
 }
 
 export interface CreateUserRequest {

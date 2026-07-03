@@ -4,6 +4,8 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { resolveApprovalStatus } from '@/lib/approval';
 import type { ApiResponse, PagePermissions } from '@/types/api';
 import type { Branch, BranchListParams, BranchListResponse, BranchTreeNode, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
 
@@ -36,13 +38,7 @@ export const branchService = {
 
     const payload = response.data;
     const branchItems = Array.isArray(payload.data?.data) ? payload.data.data : [];
-    const normalizedBranches = branchItems.map((branch: any) => ({
-      id: branch.id,
-      branchName: branch.branch_name ?? branch.branchName ?? '',
-      branchCode: branch.branch_code ?? branch.branchCode ?? '',
-      address: branch.address ?? '',
-      status: branch.status ?? '',
-    }));
+    const normalizedBranches = branchItems.map((branch: Record<string, unknown>) => normalizeBranch(branch));
 
     const pagination = payload.data?.pagination || payload.data?.meta || {
       total: normalizedBranches.length,
@@ -102,4 +98,41 @@ export const branchService = {
       { auth: true }
     );
   },
+
+  async approveBranch(id: number) {
+    return approveEntity(API_ENDPOINTS.BRANCHES.APPROVE(id));
+  },
+
+  async rejectBranch(id: number, reason?: string) {
+    return rejectEntity(API_ENDPOINTS.BRANCHES.REJECT(id), reason);
+  },
+
+  async toggleBranchStatus(id: number, active: boolean) {
+    return toggleEntityStatus(API_ENDPOINTS.BRANCHES.STATUS(id), active);
+  },
+
+  async exportBranches() {
+    return downloadEntityExport(API_ENDPOINTS.BRANCHES.EXPORT, 'branches-export.csv');
+  },
 };
+
+export function normalizeBranch(branch: Record<string, unknown>): Branch {
+  return {
+    id: Number(branch.id),
+    branchName: String(branch.branch_name ?? branch.branchName ?? ''),
+    branchCode: String(branch.branch_code ?? branch.branchCode ?? ''),
+    address: String(branch.address ?? ''),
+    status: String(branch.status ?? ''),
+    approvalStatus: resolveApprovalStatus(
+      branch.approval_status ?? branch.approvalStatus,
+      branch.status
+    ),
+  };
+}
+
+export function withListPermissions<T extends Record<string, unknown>>(
+  payload: T,
+  permissions?: PagePermissions
+): T & { permissions?: PagePermissions } {
+  return permissions ? { ...payload, permissions } : payload;
+}

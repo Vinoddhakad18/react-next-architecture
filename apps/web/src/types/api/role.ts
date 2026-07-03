@@ -2,12 +2,15 @@
  * Role API Types
  */
 
+import type { ApprovalStatus } from './common';
+
 export interface Role {
   id: number;
   name: string;
   description?: string;
   permissions?: string[];
   isActive: boolean;
+  approvalStatus?: ApprovalStatus;
   createdAt: string;
   updatedAt: string;
 }

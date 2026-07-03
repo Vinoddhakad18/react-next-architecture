@@ -2,6 +2,8 @@
  * Menu API Types
  */
 
+import type { ApprovalStatus } from './common';
+
 export interface Menu {
   id: number;
   name: string;
@@ -10,6 +12,7 @@ export interface Menu {
   description?: string;
   sortOrder: number;
   isActive: boolean;
+  approvalStatus?: ApprovalStatus;
   parentId?: number | null;
   createdAt: string;
   updatedAt: string;

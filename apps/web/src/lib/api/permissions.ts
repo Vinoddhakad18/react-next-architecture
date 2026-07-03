@@ -16,12 +16,23 @@ export const DEFAULT_PAGE_PERMISSIONS: PagePermissions = {
   delete: false,
   export: false,
   status: false,
+  approval: false,
 };
 
 type RawRecord = Record<string, unknown>;
 
 const isRecord = (value: unknown): value is RawRecord =>
   typeof value === 'object' && value !== null;
+
+/** Backend may send booleans as true, 1, or "1" (same as RBAC permissions API). */
+function toPermissionFlag(value: unknown): boolean {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim();
+    return lower === 'true' || lower === '1' || lower === 'yes';
+  }
+  return false;
+}
 
 /**
  * Locate the `permissions` object regardless of how deeply the backend nests
@@ -56,11 +67,12 @@ export function extractPagePermissions(raw: unknown): PagePermissions {
 
   return {
     menu: typeof source.menu === 'string' ? source.menu : '',
-    view: source.view === true,
-    add: source.add === true,
-    edit: source.edit === true,
-    delete: source.delete === true,
-    export: source.export === true,
-    status: source.status === true,
+    view: toPermissionFlag(source.view),
+    add: toPermissionFlag(source.add),
+    edit: toPermissionFlag(source.edit),
+    delete: toPermissionFlag(source.delete),
+    export: toPermissionFlag(source.export),
+    status: toPermissionFlag(source.status),
+    approval: toPermissionFlag(source.approval),
   };
 }

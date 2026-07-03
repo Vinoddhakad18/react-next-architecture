@@ -2,9 +2,10 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { Branch, BranchListParams, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
-import { ActionButton, Button, Input, Modal, Select, RowActions } from '@/components/ui';
+import { ActionButton, Button, Input, Modal, Select, RowActions, ExportButton, ApprovalStatusBadge } from '@/components/ui';
 import { branchService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
+import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 
 export default function BranchManagementPage() {
   const [filters, setFilters] = useState<BranchListParams>({
@@ -67,6 +68,22 @@ export default function BranchManagementPage() {
       setIsLoading(false);
     }
   }, [filters, searchTerm, setFromResponse]);
+
+  const {
+    workflowLoadingId,
+    isExporting,
+    handleApprove,
+    handleReject,
+    handleToggleStatus,
+    handleExport,
+  } = useEntityWorkflow({
+    onRefresh: fetchBranches,
+    onError: setError,
+    approve: (id) => branchService.approveBranch(Number(id)),
+    reject: (id) => branchService.rejectBranch(Number(id)),
+    toggleStatus: (id, active) => branchService.toggleBranchStatus(Number(id), active),
+    exportData: () => branchService.exportBranches(),
+  });
 
   useEffect(() => {
     fetchBranches();
@@ -228,6 +245,11 @@ export default function BranchManagementPage() {
           />
           <Button onClick={handleSearch} variant="secondary">Search</Button>
           <Button onClick={handleReset} variant="outline">Reset</Button>
+          <ExportButton
+            allowed={permissions.export}
+            onExport={handleExport}
+            isLoading={isExporting}
+          />
           {permissions.add && (
             <ActionButton type="button" action="add" onClick={handleOpenModal}>
               Add Branch
@@ -255,6 +277,7 @@ export default function BranchManagementPage() {
                   <th className="px-6 py-3 font-medium text-slate-700">Branch Name</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Branch Code</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Address</th>
+                  <th className="px-6 py-3 font-medium text-slate-700">Approval</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Status</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Actions</th>
                 </tr>
@@ -265,12 +288,21 @@ export default function BranchManagementPage() {
                     <td className="px-6 py-4 text-slate-900">{branch.branchName}</td>
                     <td className="px-6 py-4 text-slate-700">{branch.branchCode}</td>
                     <td className="px-6 py-4 text-slate-700">{branch.address}</td>
+                    <td className="px-6 py-4 text-slate-700">
+                      <ApprovalStatusBadge status={branch.approvalStatus} />
+                    </td>
                     <td className="px-6 py-4 text-slate-700">{branch.status}</td>
                     <td className="px-6 py-4 text-slate-700">
                       <RowActions
                         permissions={permissions}
+                        approvalStatus={branch.approvalStatus}
+                        isActive={branch.status?.toLowerCase() === 'active'}
                         onEdit={() => handleEditBranch(branch)}
                         onDelete={() => handleDeleteClick(branch)}
+                        onApprove={() => handleApprove(branch.id)}
+                        onReject={() => handleReject(branch.id)}
+                        onToggleStatus={() => handleToggleStatus(branch.id, branch.status?.toLowerCase() !== 'active')}
+                        actionLoading={workflowLoadingId === branch.id}
                       />
                     </td>
                   </tr>

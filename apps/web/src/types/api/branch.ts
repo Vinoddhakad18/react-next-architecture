@@ -2,12 +2,15 @@
  * Branch API Types
  */
 
+import type { ApprovalStatus } from './common';
+
 export interface Branch {
   id: number;
   branchName: string;
   branchCode: string;
   address: string;
   status: string;
+  approvalStatus?: ApprovalStatus;
 }
 
 export interface BranchTreeNode {

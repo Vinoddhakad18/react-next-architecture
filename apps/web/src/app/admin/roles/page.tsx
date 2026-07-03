@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Role, RoleListParams } from '@/types/api';
-import { ActionButton, Button, Modal, Input, Checkbox, RowActions } from '@/components/ui';
-import { roleService } from '@/services';
+import { ActionButton, Button, Modal, Input, Checkbox, RowActions, ExportButton, ApprovalStatusBadge } from '@/components/ui';
+import { roleService, normalizeRole } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
+import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 
 interface RoleFormData {
   name: string;
@@ -60,7 +61,7 @@ export default function RoleManagementPage() {
 
       if (response.success && response.data) {
         // Capture the per-action permissions the listing endpoint returns
-        // alongside the data (view/add/edit/delete/export/status).
+        // alongside the data (view/add/edit/delete/export/status/approval).
         setFromResponse(response.data);
 
         // Typed as `any` because the runtime shape is probed defensively below.
@@ -152,7 +153,7 @@ export default function RoleManagementPage() {
           }
         }
 
-        setRoles(rolesArray);
+        setRoles(rolesArray.map((role) => normalizeRole(role as unknown as Record<string, unknown>)));
         setPagination(paginationData);
       } else {
         setError(response.error?.message || 'Failed to fetch roles');
@@ -165,6 +166,22 @@ export default function RoleManagementPage() {
       setIsLoading(false);
     }
   }, [filters, searchTerm, setFromResponse]);
+
+  const {
+    workflowLoadingId,
+    isExporting,
+    handleApprove,
+    handleReject,
+    handleToggleStatus,
+    handleExport,
+  } = useEntityWorkflow({
+    onRefresh: fetchRoles,
+    onError: setError,
+    approve: (id) => roleService.approveRole(Number(id)),
+    reject: (id) => roleService.rejectRole(Number(id)),
+    toggleStatus: (id, active) => roleService.toggleRoleStatus(Number(id), active),
+    exportData: () => roleService.exportRoles(),
+  });
 
   // Fetch roles on mount and when filters change
   useEffect(() => {
@@ -437,6 +454,11 @@ export default function RoleManagementPage() {
                 </svg>
                 Reset
               </Button>
+              <ExportButton
+                allowed={permissions.export}
+                onExport={handleExport}
+                isLoading={isExporting}
+              />
             </div>
           </div>
         </div>
@@ -562,6 +584,9 @@ export default function RoleManagementPage() {
                         Description
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Approval
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -596,15 +621,23 @@ export default function RoleManagementPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <ApprovalStatusBadge status={role.approvalStatus} />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(role.isActive)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <RowActions
                             permissions={permissions}
+                            approvalStatus={role.approvalStatus}
+                            isActive={role.isActive}
                             onEdit={() => handleEditRole(role)}
                             onDelete={() => handleDeleteClick(role)}
+                            onApprove={() => handleApprove(role.id)}
+                            onReject={() => handleReject(role.id)}
+                            onToggleStatus={() => handleToggleStatus(role.id, !role.isActive)}
                             canDelete={role.name !== 'super_admin'}
-                            deleteLoading={deletingRoleId === role.id}
+                            actionLoading={workflowLoadingId === role.id || deletingRoleId === role.id}
                             className="flex items-center space-x-3"
                           />
                         </td>

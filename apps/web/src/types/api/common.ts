@@ -2,6 +2,9 @@
  * Common API Types
  */
 
+/** Maker-checker workflow states returned by the backend. */
+export type ApprovalStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
 // Generic API Response wrapper
 export interface ApiResponse<T> {
   data: T;

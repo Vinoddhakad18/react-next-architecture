@@ -3,10 +3,12 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from '@/types/api/user';
 import type { BranchTreeNode } from '@/types/api/branch';
-import { Button, Input, Modal, Select, RowActions, BranchTreeSelect } from '@/components/ui';
+import { Button, Input, Modal, Select, RowActions, BranchTreeSelect, ExportButton, UserApprovalCell } from '@/components/ui';
 import { userService, roleService, branchService } from '@/services';
 import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
+import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
+import { formatApprovalAction, formatUserStatus } from '@/lib/users/approvalLabels';
 
 export default function UserManagementPage() {
   const [filters, setFilters] = useState<UserListParams>({
@@ -29,6 +31,7 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [reviewUser, setReviewUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState<UpdateUserRequest>({
@@ -73,22 +76,14 @@ export default function UserManagementPage() {
       if (response.success && response.data) {
         setFromResponse(response.data);
 
-        const payload = response.data as { data:any; meta: { page: number; limit: number; total: number; totalPages: number } };
-        const normalizedUsers = Array.isArray(payload?.data?.data)
-          ? payload?.data?.data
-          : Array.isArray(response.data)
-          ? response.data
-          : [];
+        const list = response.data;
+        const mergedUsers = [
+          ...list.data,
+          ...(list.pendingCreates ?? []),
+        ];
 
-        setUsers(normalizedUsers as User[]);
-        setPagination(
-          payload.meta ?? {
-            page: params.page || 1,
-            limit: params.limit || 10,
-            total: normalizedUsers.length,
-            totalPages: Math.max(1, Math.ceil(normalizedUsers.length / (params.limit || 10))),
-          }
-        );
+        setUsers(mergedUsers);
+        setPagination(list.meta);
       } else {
         setUsers([]);
         setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -102,6 +97,22 @@ export default function UserManagementPage() {
       setIsLoading(false);
     }
   }, [filters, searchTerm, setFromResponse]);
+
+  const {
+    workflowLoadingId,
+    isExporting,
+    handleApprove,
+    handleReject,
+    handleToggleStatus,
+    handleExport,
+  } = useEntityWorkflow({
+    onRefresh: fetchUsers,
+    onError: setError,
+    approve: (id) => userService.approveUserRequest(Number(id)),
+    reject: (id) => userService.rejectUserRequest(Number(id)),
+    toggleStatus: (id, active) => userService.toggleUserStatus(String(id), active),
+    exportData: () => userService.exportUsers(),
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -261,6 +272,11 @@ export default function UserManagementPage() {
           />
           <Button onClick={handleSearch} variant="secondary">Search</Button>
           <Button onClick={handleReset} variant="outline">Reset</Button>
+          <ExportButton
+            allowed={permissions.export}
+            onExport={handleExport}
+            isLoading={isExporting}
+          />
           {permissions.add && (
             <Button onClick={handleOpenCreate} variant="primary">Add User</Button>
           )}
@@ -287,27 +303,68 @@ export default function UserManagementPage() {
                   <th className="px-6 py-3 font-medium text-slate-700">Name</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Email</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Role</th>
+                  <th className="px-6 py-3 font-medium text-slate-700">Approval</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Status</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {users.map((user) => (
-                  <tr key={user?.id}>
-                    <td className="px-6 py-4 text-slate-900">{user?.name}</td>
-                    <td className="px-6 py-4 text-slate-700">{user?.email}</td>
-                    <td className="px-6 py-4 text-slate-700">{user?.roleName}</td>
-                    <td className="px-6 py-4 text-slate-700">{user?.status}</td>
+                {users.map((user) => {
+                  const requestId = user.approval?.requestId;
+                  const isActive = user.status?.toUpperCase() === 'ACTIVE' || user.status?.toLowerCase() === 'active';
+
+                  return (
+                  <tr key={`${user.id}-${requestId ?? 'row'}`}>
+                    <td className="px-6 py-4 text-slate-900">
+                      <div>{user.name}</div>
+                      {user.branchName ? (
+                        <p className="text-xs text-slate-500 mt-0.5">{user.branchName}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">{user.email}</td>
+                    <td className="px-6 py-4 text-slate-700">{user.roleName ?? user.role}</td>
+                    <td className="px-6 py-4 text-slate-700">
+                      <button
+                        type="button"
+                        className="text-left disabled:cursor-default"
+                        title={user.approval?.hasPending ? 'View requested changes' : undefined}
+                        onClick={() => user.approval?.hasPending && setReviewUser(user)}
+                        disabled={!user.approval?.hasPending}
+                      >
+                        <UserApprovalCell user={user} />
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">{formatUserStatus(user.status)}</td>
                     <td className="px-6 py-4 text-slate-700">
                       <RowActions
                         permissions={permissions}
-                        onEdit={() => handleEditUser(user)}
-                        onDelete={() => handleDeleteClick(user)}
-                        canDelete={user?.roleName !== 'super_admin'}
+                        approvalStatus={user.approvalStatus}
+                        isActive={isActive}
+                        approvalOnly={Boolean(user.approval?.hasPending)}
+                        onEdit={user.isPendingCreate ? undefined : () => handleEditUser(user)}
+                        onDelete={user.isPendingCreate ? undefined : () => handleDeleteClick(user)}
+                        onApprove={
+                          requestId && user.approval?.hasPending
+                            ? () => handleApprove(requestId)
+                            : undefined
+                        }
+                        onReject={
+                          requestId && user.approval?.hasPending
+                            ? () => handleReject(requestId)
+                            : undefined
+                        }
+                        onToggleStatus={
+                          user.isPendingCreate
+                            ? undefined
+                            : () => handleToggleStatus(user.id, !isActive)
+                        }
+                        canDelete={user.roleName !== 'super_admin'}
+                        actionLoading={requestId != null && workflowLoadingId === requestId}
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -453,6 +510,93 @@ export default function UserManagementPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(reviewUser)}
+        onClose={() => setReviewUser(null)}
+        title={
+          reviewUser?.approval?.requestNo
+            ? `Review ${reviewUser.approval.requestNo}`
+            : 'Review changes'
+        }
+        size="lg"
+      >
+        {reviewUser?.approval?.hasPending ? (
+          <div className="space-y-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium uppercase text-slate-500">Request type</p>
+                <p className="text-slate-900">
+                  {formatApprovalAction(reviewUser.approval.action) ?? '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-slate-500">Requested by</p>
+                <p className="text-slate-900">{reviewUser.approval.makerName ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-slate-500">Submitted</p>
+                <p className="text-slate-900">
+                  {reviewUser.approval.submittedAt
+                    ? new Date(reviewUser.approval.submittedAt).toLocaleString()
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-slate-500">Fields changed</p>
+                <p className="text-slate-900">
+                  {reviewUser.approval.changedFields?.length
+                    ? reviewUser.approval.changedFields.join(', ')
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 p-4">
+                <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Current values</p>
+                <pre className="overflow-x-auto text-xs text-slate-700 whitespace-pre-wrap">
+                  {JSON.stringify(reviewUser.approval.previousData ?? {}, null, 2)}
+                </pre>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="mb-2 text-xs font-semibold uppercase text-amber-800">Requested changes</p>
+                <pre className="overflow-x-auto text-xs text-amber-900 whitespace-pre-wrap">
+                  {JSON.stringify(reviewUser.approval.proposedData ?? {}, null, 2)}
+                </pre>
+              </div>
+            </div>
+
+            {reviewUser.approval.requestId && permissions.approval ? (
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
+                <Button
+                  variant="outline"
+                  className="border-rose-300 text-rose-700 hover:bg-rose-50"
+                  onClick={() => {
+                    const id = reviewUser.approval?.requestId;
+                    if (id) handleReject(id);
+                    setReviewUser(null);
+                  }}
+                >
+                  Reject
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    const id = reviewUser.approval?.requestId;
+                    if (id) handleApprove(id);
+                    setReviewUser(null);
+                  }}
+                >
+                  Approve
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-600">No pending approval for this user.</p>
+        )}
       </Modal>
     </div>
   );

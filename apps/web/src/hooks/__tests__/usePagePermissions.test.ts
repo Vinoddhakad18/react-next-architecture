@@ -33,6 +33,7 @@ describe('usePagePermissions', () => {
           delete: false,
           export: false,
           status: false,
+          approval: false,
         },
       });
     });

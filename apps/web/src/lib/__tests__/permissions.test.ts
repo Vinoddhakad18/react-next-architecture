@@ -12,6 +12,7 @@ const granted = {
   delete: true,
   export: true,
   status: true,
+  approval: true,
 };
 
 describe('extractPagePermissions', () => {
@@ -41,16 +42,42 @@ describe('extractPagePermissions', () => {
     expect(extractPagePermissions(42)).toEqual(DEFAULT_PAGE_PERMISSIONS);
   });
 
-  it('coerces non-boolean / partial flags to false (no privilege escalation)', () => {
-    const raw = { permissions: { menu: '/x', view: true, add: true, edit: 'yes', delete: 1 } };
+  it('accepts numeric and string truthy flags from the backend', () => {
+    const raw = {
+      permissions: {
+        menu: '/admin/users',
+        view: 1,
+        add: 'true',
+        edit: 'yes',
+        delete: 1,
+        export: 1,
+        status: 1,
+        approval: 1,
+      },
+    };
     expect(extractPagePermissions(raw)).toEqual({
-      menu: '/x',
+      menu: '/admin/users',
       view: true,
       add: true,
+      edit: true,
+      delete: true,
+      export: true,
+      status: true,
+      approval: true,
+    });
+  });
+
+  it('coerces falsy flags to false (no privilege escalation)', () => {
+    const raw = { permissions: { menu: '/x', view: false, add: 0, approval: '0' } };
+    expect(extractPagePermissions(raw)).toEqual({
+      menu: '/x',
+      view: false,
+      add: false,
       edit: false,
       delete: false,
       export: false,
       status: false,
+      approval: false,
     });
   });
 

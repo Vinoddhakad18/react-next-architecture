@@ -4,7 +4,10 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { resolveApprovalStatus } from '@/lib/approval';
 import type { Role, RoleListParams, RoleListResponse } from '@/types/api';
+import type { PagePermissions } from '@/types/api';
 
 export interface CreateRoleRequest {
   name: string;
@@ -91,7 +94,48 @@ export const roleService = {
   async deleteRole(id: number) {
     return apiClient.delete<void>(API_ENDPOINTS.ROLES.DELETE(id), { auth: true });
   },
+
+  async approveRole(id: number) {
+    return approveEntity(API_ENDPOINTS.ROLES.APPROVE(id));
+  },
+
+  async rejectRole(id: number, reason?: string) {
+    return rejectEntity(API_ENDPOINTS.ROLES.REJECT(id), reason);
+  },
+
+  async toggleRoleStatus(id: number, active: boolean) {
+    return toggleEntityStatus(API_ENDPOINTS.ROLES.STATUS(id), active);
+  },
+
+  async exportRoles() {
+    return downloadEntityExport(API_ENDPOINTS.ROLES.EXPORT, 'roles-export.csv');
+  },
 };
+
+/** Map a raw API role record to the frontend Role shape. */
+export function normalizeRole(role: Record<string, unknown>): Role {
+  const isActive = Boolean(role.status ?? role.is_active ?? role.isActive ?? true);
+  return {
+    id: Number(role.id),
+    name: String(role.name ?? ''),
+    description: role.description ? String(role.description) : undefined,
+    isActive,
+    approvalStatus: resolveApprovalStatus(
+      role.approval_status ?? role.approvalStatus,
+      role.status ?? role.is_active
+    ),
+    createdAt: String(role.created_at ?? role.createdAt ?? new Date().toISOString()),
+    updatedAt: String(role.updated_at ?? role.updatedAt ?? new Date().toISOString()),
+  };
+}
+
+/** Attach page permissions from a list API response. */
+export function withListPermissions<T extends Record<string, unknown>>(
+  payload: T,
+  permissions?: PagePermissions
+): T & { permissions?: PagePermissions } {
+  return permissions ? { ...payload, permissions } : payload;
+}
 
 
 

@@ -4,7 +4,10 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { resolveApprovalStatus } from '@/lib/approval';
 import type { Menu, MenuListParams, MenuListResponse } from '@/types/api';
+import type { PagePermissions } from '@/types/api';
 
 export interface CreateMenuRequest {
   name: string;
@@ -110,5 +113,48 @@ export const menuService = {
   async deleteMenu(id: number) {
     return apiClient.delete<void>(API_ENDPOINTS.MENUS.DELETE(id), { auth: true });
   },
+
+  async approveMenu(id: number) {
+    return approveEntity(API_ENDPOINTS.MENUS.APPROVE(id));
+  },
+
+  async rejectMenu(id: number, reason?: string) {
+    return rejectEntity(API_ENDPOINTS.MENUS.REJECT(id), reason);
+  },
+
+  async toggleMenuStatus(id: number, active: boolean) {
+    return toggleEntityStatus(API_ENDPOINTS.MENUS.STATUS(id), active);
+  },
+
+  async exportMenus() {
+    return downloadEntityExport(API_ENDPOINTS.MENUS.EXPORT, 'menus-export.csv');
+  },
 };
+
+export function normalizeMenu(menu: Record<string, unknown>): Menu {
+  const isActive = Boolean(menu.is_active ?? menu.isActive ?? true);
+  return {
+    id: Number(menu.id),
+    name: String(menu.name ?? ''),
+    slug: menu.slug ? String(menu.slug) : undefined,
+    route: menu.route ? String(menu.route) : undefined,
+    description: menu.description ? String(menu.description) : undefined,
+    sortOrder: Number(menu.sort_order ?? menu.sortOrder ?? 0),
+    isActive,
+    approvalStatus: resolveApprovalStatus(
+      menu.approval_status ?? menu.approvalStatus,
+      menu.is_active ?? menu.isActive
+    ),
+    parentId: menu.parent_id !== undefined ? Number(menu.parent_id) : menu.parentId !== undefined ? Number(menu.parentId) : null,
+    createdAt: String(menu.created_at ?? menu.createdAt ?? new Date().toISOString()),
+    updatedAt: String(menu.updated_at ?? menu.updatedAt ?? new Date().toISOString()),
+  };
+}
+
+export function withListPermissions<T extends Record<string, unknown>>(
+  payload: T,
+  permissions?: PagePermissions
+): T & { permissions?: PagePermissions } {
+  return permissions ? { ...payload, permissions } : payload;
+}
 

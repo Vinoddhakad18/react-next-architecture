@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Menu, MenuListParams } from '@/types/api';
-import { ActionButton, Button, Modal, Input, Select, Checkbox, RowActions } from '@/components/ui';
-import { menuService } from '@/services';
+import { ActionButton, Button, Modal, Input, Select, Checkbox, RowActions, ExportButton, ApprovalStatusBadge } from '@/components/ui';
+import { menuService, normalizeMenu } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
+import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 
 interface MenuFormData {
   name: string;
@@ -160,7 +161,7 @@ export default function MenuManagementPage() {
           }
         }
 
-        setMenus(menusArray);
+        setMenus(menusArray.map((menu) => normalizeMenu(menu as unknown as Record<string, unknown>)));
         setPagination(paginationData);
       } else {
         setError(response.error?.message || 'Failed to fetch menus');
@@ -173,6 +174,22 @@ export default function MenuManagementPage() {
       setIsLoading(false);
     }
   }, [filters, searchTerm, setFromResponse]);
+
+  const {
+    workflowLoadingId,
+    isExporting,
+    handleApprove,
+    handleReject,
+    handleToggleStatus,
+    handleExport,
+  } = useEntityWorkflow({
+    onRefresh: fetchMenus,
+    onError: setError,
+    approve: (id) => menuService.approveMenu(Number(id)),
+    reject: (id) => menuService.rejectMenu(Number(id)),
+    toggleStatus: (id, active) => menuService.toggleMenuStatus(Number(id), active),
+    exportData: () => menuService.exportMenus(),
+  });
 
   // Fetch menus on mount and when filters change
   useEffect(() => {
@@ -534,6 +551,11 @@ export default function MenuManagementPage() {
                 </svg>
                 Reset
               </Button>
+              <ExportButton
+                allowed={permissions.export}
+                onExport={handleExport}
+                isLoading={isExporting}
+              />
             </div>
           </div>
         </div>
@@ -668,6 +690,9 @@ export default function MenuManagementPage() {
                         </button>
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Approval
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -710,14 +735,22 @@ export default function MenuManagementPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <ApprovalStatusBadge status={menu.approvalStatus} />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(menu.isActive)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <RowActions
                             permissions={permissions}
+                            approvalStatus={menu.approvalStatus}
+                            isActive={menu.isActive}
                             onEdit={() => handleEditMenu(menu)}
                             onDelete={() => handleDeleteClick(menu)}
-                            deleteLoading={deletingMenuId === menu.id}
+                            onApprove={() => handleApprove(menu.id)}
+                            onReject={() => handleReject(menu.id)}
+                            onToggleStatus={() => handleToggleStatus(menu.id, !menu.isActive)}
+                            actionLoading={workflowLoadingId === menu.id || deletingMenuId === menu.id}
                             className="flex items-center space-x-3"
                           />
                         </td>

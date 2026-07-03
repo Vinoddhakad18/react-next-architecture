@@ -2,7 +2,7 @@
  * usePagePermissions Hook
  *
  * Holds the current page's per-action permissions (view/add/edit/delete/
- * export/status). Permissions are returned by list/detail endpoints, so a page
+ * export/status/approval). Permissions are returned by list/detail endpoints, so a page
  * typically calls `setPermissions(extractPagePermissions(response.data))` after
  * fetching its data.
  *

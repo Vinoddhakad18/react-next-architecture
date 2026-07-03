@@ -25,6 +25,16 @@ export const API_ENDPOINTS = {
     CREATE: '/api/v1/users',
     UPDATE: (id: string) => `/api/v1/users/${id}`,
     DELETE: (id: string) => `/api/v1/users/${id}`,
+    APPROVE: (id: string) => `/api/v1/users/${id}/approve`,
+    REJECT: (id: string) => `/api/v1/users/${id}/reject`,
+    STATUS: (id: string) => `/api/v1/users/${id}/status`,
+    EXPORT: '/api/v1/users/export',
+  },
+
+  // Approval requests (maker-checker workflow)
+  APPROVALS: {
+    APPROVE: (requestId: number) => `/api/v1/approvals/${requestId}/approve`,
+    REJECT: (requestId: number) => `/api/v1/approvals/${requestId}/reject`,
   },
 
   // Dashboard
@@ -43,6 +53,10 @@ export const API_ENDPOINTS = {
     GET: (id: number) => `/api/v1/menus/${id}`,
     UPDATE: (id: number) => `/api/v1/menus/${id}`,
     DELETE: (id: number) => `/api/v1/menus/${id}`,
+    APPROVE: (id: number) => `/api/v1/menus/${id}/approve`,
+    REJECT: (id: number) => `/api/v1/menus/${id}/reject`,
+    STATUS: (id: number) => `/api/v1/menus/${id}/status`,
+    EXPORT: '/api/v1/menus/export',
   },
 
   // Roles
@@ -53,6 +67,10 @@ export const API_ENDPOINTS = {
     GET: (id: number) => `/api/v1/roles/${id}`,
     UPDATE: (id: number) => `/api/v1/roles/${id}`,
     DELETE: (id: number) => `/api/v1/roles/${id}`,
+    APPROVE: (id: number) => `/api/v1/roles/${id}/approve`,
+    REJECT: (id: number) => `/api/v1/roles/${id}/reject`,
+    STATUS: (id: number) => `/api/v1/roles/${id}/status`,
+    EXPORT: '/api/v1/roles/export',
   },
 
   // Branches
@@ -63,6 +81,10 @@ export const API_ENDPOINTS = {
     GET: (id: number) => `/api/v1/branches/${id}`,
     UPDATE: (id: number) => `/api/v1/branches/${id}`,
     DELETE: (id: number) => `/api/v1/branches/${id}`,
+    APPROVE: (id: number) => `/api/v1/branches/${id}/approve`,
+    REJECT: (id: number) => `/api/v1/branches/${id}/reject`,
+    STATUS: (id: number) => `/api/v1/branches/${id}/status`,
+    EXPORT: '/api/v1/branches/export',
   },
 
   // Health Check

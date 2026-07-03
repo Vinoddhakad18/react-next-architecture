@@ -2,17 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
+import { parseUserListResponse } from '@/lib/users/parseUserListResponse';
 import { normalizeUser } from '@/lib/utils/normalizeUser';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
-
-function normalizePagination(pagination: any, page: number, limit: number, total: number) {
-  return {
-    total: pagination?.total ?? total,
-    page: pagination?.page ?? page,
-    limit: pagination?.limit ?? limit,
-    totalPages: pagination?.totalPages ?? pagination?.total_pages ?? Math.ceil(total / limit),
-  };
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -96,33 +88,12 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    let userItems: any[] = [];
-    let pagination: any = {};
-
-    if (data?.success && data?.data) {
-      const backendData = data.data;
-      userItems = backendData.data || backendData.users || [];
-      pagination = normalizePagination(backendData.pagination || backendData.meta, page, limit, userItems.length);
-    } else if (data?.data && Array.isArray(data.data)) {
-      userItems = data.data;
-      pagination = normalizePagination(data.meta || {}, page, limit, userItems.length);
-    } else if (Array.isArray(data)) {
-      userItems = data;
-      pagination = normalizePagination({}, page, limit, userItems.length);
-    } else {
-      const backendData = data?.data ?? data;
-      if (Array.isArray(backendData)) {
-        userItems = backendData;
-      }
-      pagination = normalizePagination(data?.meta || data?.pagination || {}, page, limit, userItems.length);
-    }
-
-    const normalizedUsers = userItems.map(normalizeUser);
+    const parsed = parseUserListResponse(data);
 
     return NextResponse.json(
       {
-        data: normalizedUsers,
-        meta: pagination,
+        ...parsed,
+        permissions: parsed.permissions ?? data?.permissions,
       },
       { status: 200 }
     );
@@ -194,7 +165,11 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(normalizeUser(data?.data ?? data), { status: 201 });
+    const userRecord = data?.data ?? data;
+    return NextResponse.json(
+      normalizeUser(typeof userRecord === 'object' && userRecord ? userRecord : {}),
+      { status: 201 }
+    );
   } catch (error) {
     console.error('[Users API POST] Error:', error);
     return NextResponse.json(
