@@ -8,18 +8,8 @@ import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
-
-function normalizeBranch(branch: any) {
-  return {
-    id: branch.id,
-    branchName: branch.branch_name ?? branch.branchName ?? '',
-    branchCode: branch.branch_code ?? branch.branchCode ?? '',
-    address: branch.address ?? '',
-    status: branch.status ?? '',
-    createdAt: branch.createdAt || branch.created_at || new Date().toISOString(),
-    updatedAt: branch.updatedAt || branch.updated_at || new Date().toISOString(),
-  };
-}
+import { extractPagePermissions } from '@/lib/api/permissions';
+import { normalizeBranch } from '@/services/branch.service';
 
 function normalizePagination(pagination: any, page: number, limit: number, total: number) {
   return {
@@ -118,7 +108,9 @@ export async function GET(request: NextRequest) {
     if (data.success && data.data) {
       const backendData = data.data;
       const branchItems = backendData.data || backendData.branches || [];
-      const normalizedBranches = (Array.isArray(branchItems) ? branchItems : []).map(normalizeBranch);
+      const normalizedBranches = (Array.isArray(branchItems) ? branchItems : []).map((branch: Record<string, unknown>) =>
+        normalizeBranch(branch)
+      );
       const pagination = normalizePagination(backendData.pagination || backendData.meta, page, limit, normalizedBranches.length);
 
       branchData = {
@@ -127,12 +119,12 @@ export async function GET(request: NextRequest) {
       };
     } else if (data.data && Array.isArray(data.data) && data.meta) {
       branchData = {
-        data: data.data.map(normalizeBranch),
+        data: data.data.map((branch: Record<string, unknown>) => normalizeBranch(branch)),
         meta: normalizePagination(data.meta, page, limit, data.data.length),
       };
     } else if (Array.isArray(data)) {
       branchData = {
-        data: data.map(normalizeBranch),
+        data: data.map((branch: Record<string, unknown>) => normalizeBranch(branch)),
         meta: normalizePagination({}, page, limit, data.length),
       };
     } else {
@@ -144,12 +136,18 @@ export async function GET(request: NextRequest) {
       }
 
       branchData = {
-        data: foundArray.map(normalizeBranch),
+        data: foundArray.map((branch: Record<string, unknown>) => normalizeBranch(branch)),
         meta: normalizePagination({}, page, limit, foundArray.length),
       };
     }
 
-    return NextResponse.json(branchData, { status: 200 });
+    return NextResponse.json(
+      {
+        ...branchData,
+        permissions: extractPagePermissions(data),
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('[Branches API] Error:', error);
     return NextResponse.json(
@@ -233,7 +231,7 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     const rawBranch = data?.data ?? data;
-    const normalizedBranch = normalizeBranch(rawBranch);
+    const normalizedBranch = normalizeBranch(rawBranch as Record<string, unknown>);
 
     return NextResponse.json(normalizedBranch, { status: 200 });
   } catch (error) {

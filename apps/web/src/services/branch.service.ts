@@ -8,6 +8,7 @@ import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalReque
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
 import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/approval/entityApproval';
+import { pickField, toBooleanFlag } from '@/lib/api/fieldAccess';
 import type { ApiResponse, PagePermissions } from '@/types/api';
 import type { Branch, BranchListParams, BranchListResponse, BranchTreeNode, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
 
@@ -127,7 +128,8 @@ export function normalizeBranch(branch: Record<string, unknown>): Branch {
     address: String(branch.address ?? ''),
     status: String(branch.status ?? ''),
     approval,
-    isPendingCreate: branch.isPendingCreate === true,
+    isPendingCreate:
+      toBooleanFlag(pickField(branch, 'isPendingCreate', 'is_pending_create')),
     approvalStatus: approval
       ? resolveEntityApprovalStatus(approval)
       : resolveApprovalStatus(

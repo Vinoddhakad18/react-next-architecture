@@ -73,8 +73,12 @@ export function parseUserListResponse(raw: unknown): UserListResponse {
 
   const pendingRows = Array.isArray(listContainer.pendingCreates)
     ? listContainer.pendingCreates
+    : Array.isArray(listContainer.pending_creates)
+    ? listContainer.pending_creates
     : Array.isArray(raw.pendingCreates)
     ? raw.pendingCreates
+    : Array.isArray(raw.pending_creates)
+    ? raw.pending_creates
     : [];
 
   const data = mapUserRows(userRows);

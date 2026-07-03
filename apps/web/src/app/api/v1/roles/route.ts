@@ -9,6 +9,8 @@ import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/va
 
 import { BACKEND_API_URL } from '@/lib/api/backendConfig';
 import { backendFetch } from '@/lib/api/backendProxy';
+import { extractPagePermissions } from '@/lib/api/permissions';
+import { normalizeRole } from '@/services/role.service';
 
 /**
  * GET /api/v1/roles
@@ -107,15 +109,9 @@ export async function GET(request: NextRequest) {
       const backendData = data.data;
       const roleItems = backendData.data || backendData.roles || [];
       
-      const normalizedRoles = (Array.isArray(roleItems) ? roleItems : []).map((role: any) => ({
-        id: role.id,
-        name: role.name,
-        description: role.description,
-        permissions: role.permissions || role.permission || [],
-        isActive: role.isActive ?? role.is_active ?? true,
-        createdAt: role.createdAt || role.created_at || new Date().toISOString(),
-        updatedAt: role.updatedAt || role.updated_at || new Date().toISOString(),
-      }));
+      const normalizedRoles = (Array.isArray(roleItems) ? roleItems : []).map((role: Record<string, unknown>) =>
+        normalizeRole(role)
+      );
 
       const pagination = backendData.pagination || backendData.meta || {
         total: normalizedRoles.length,
@@ -168,7 +164,13 @@ export async function GET(request: NextRequest) {
       roleData.data = [];
     }
 
-    return NextResponse.json(roleData, { status: 200 });
+    return NextResponse.json(
+      {
+        ...roleData,
+        permissions: extractPagePermissions(data),
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Role API error:', error);
     return NextResponse.json(

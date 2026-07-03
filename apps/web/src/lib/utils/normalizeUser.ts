@@ -1,52 +1,20 @@
-import type { ApprovalStatus, User, UserApprovalInfo } from '@/types/api/user';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function normalizeApproval(raw: unknown): UserApprovalInfo | undefined {
-  if (!isRecord(raw)) {
-    return undefined;
-  }
-
-  return {
-    hasPending: raw.hasPending === true,
-    requestId: raw.requestId !== undefined ? Number(raw.requestId) : undefined,
-    requestNo: raw.requestNo ? String(raw.requestNo) : undefined,
-    action: raw.action ? String(raw.action) : undefined,
-    status: raw.status ? String(raw.status) : undefined,
-    makerId: raw.makerId !== undefined ? Number(raw.makerId) : undefined,
-    makerName: raw.makerName ? String(raw.makerName) : undefined,
-    makerEmail: raw.makerEmail ? String(raw.makerEmail) : undefined,
-    submittedAt: raw.submittedAt ? String(raw.submittedAt) : undefined,
-    changedFields: Array.isArray(raw.changedFields)
-      ? raw.changedFields.map(String)
-      : undefined,
-    proposedData: isRecord(raw.proposedData) ? raw.proposedData : undefined,
-    previousData: isRecord(raw.previousData) ? raw.previousData : undefined,
-  };
-}
+import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/approval/entityApproval';
+import { pickField, toBooleanFlag } from '@/lib/api/fieldAccess';
+import type { User } from '@/types/api/user';
+import type { ApprovalStatus } from '@/types/api/common';
 
 /** Map nested `approval` object from the users list API to UI approval status. */
-export function resolveUserApprovalStatus(approval?: UserApprovalInfo): ApprovalStatus {
-  if (!approval) {
-    return 'approved';
-  }
-  if (approval.hasPending) {
-    return 'pending';
-  }
-  const status = (approval.status ?? '').toUpperCase();
-  if (status === 'PENDING') return 'pending';
-  if (status === 'REJECTED') return 'rejected';
-  if (status === 'APPROVED') return 'approved';
-  return 'approved';
+export function resolveUserApprovalStatus(
+  approval?: ReturnType<typeof normalizeApprovalObject>
+): ApprovalStatus {
+  return resolveEntityApprovalStatus(approval);
 }
 
 /**
  * Normalize a backend user record (snake_case or camelCase) into the frontend User shape.
  */
 export function normalizeUser(user: Record<string, unknown>, options?: { isPendingCreate?: boolean }): User {
-  const approval = normalizeApproval(user.approval);
+  const approval = normalizeApprovalObject(user.approval);
   const previousData = approval?.previousData;
 
   const status =
@@ -70,7 +38,13 @@ export function normalizeUser(user: Record<string, unknown>, options?: { isPendi
     ? user.branch_ids.map(Number)
     : Array.isArray(previousData?.branchIds)
     ? (previousData.branchIds as unknown[]).map(Number)
+    : Array.isArray(previousData?.branch_ids)
+    ? (previousData.branch_ids as unknown[]).map(Number)
     : [];
+
+  const isPendingCreate =
+    options?.isPendingCreate ??
+    toBooleanFlag(pickField(user, 'isPendingCreate', 'is_pending_create'));
 
   return {
     id: String(user.id ?? user.user_id ?? approval?.requestId ?? ''),
@@ -81,7 +55,7 @@ export function normalizeUser(user: Record<string, unknown>, options?: { isPendi
     status,
     approval,
     approvalStatus: resolveUserApprovalStatus(approval),
-    isPendingCreate: options?.isPendingCreate ?? false,
+    isPendingCreate,
     mobile: user.mobile ? String(user.mobile) : user.phone ? String(user.phone) : undefined,
     roleId:
       user.roleId !== undefined

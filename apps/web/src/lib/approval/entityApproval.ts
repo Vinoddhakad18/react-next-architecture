@@ -2,6 +2,14 @@
  * Shared approval normalization and display helpers for all modules.
  */
 
+import {
+  pickField,
+  pickNumber,
+  pickRecord,
+  pickString,
+  pickStringArray,
+  toBooleanFlag,
+} from '@/lib/api/fieldAccess';
 import type { ApprovalStatus } from '@/types/api';
 import type { EntityApprovalInfo } from '@/types/api/approval';
 
@@ -20,21 +28,23 @@ export function normalizeApprovalObject(raw: unknown): EntityApprovalInfo | unde
     return undefined;
   }
 
+  const hasPending =
+    toBooleanFlag(pickField(raw, 'hasPending', 'has_pending')) ||
+    String(pickString(raw, 'status') ?? '').toUpperCase() === 'PENDING';
+
   return {
-    hasPending: raw.hasPending === true,
-    requestId: raw.requestId !== undefined ? Number(raw.requestId) : undefined,
-    requestNo: raw.requestNo ? String(raw.requestNo) : undefined,
-    action: raw.action ? String(raw.action) : undefined,
-    status: raw.status ? String(raw.status) : undefined,
-    makerId: raw.makerId !== undefined ? Number(raw.makerId) : undefined,
-    makerName: raw.makerName ? String(raw.makerName) : undefined,
-    makerEmail: raw.makerEmail ? String(raw.makerEmail) : undefined,
-    submittedAt: raw.submittedAt ? String(raw.submittedAt) : undefined,
-    changedFields: Array.isArray(raw.changedFields)
-      ? raw.changedFields.map(String)
-      : undefined,
-    proposedData: isRecord(raw.proposedData) ? raw.proposedData : undefined,
-    previousData: isRecord(raw.previousData) ? raw.previousData : undefined,
+    hasPending,
+    requestId: pickNumber(raw, 'requestId', 'request_id'),
+    requestNo: pickString(raw, 'requestNo', 'request_no'),
+    action: pickString(raw, 'action'),
+    status: pickString(raw, 'status'),
+    makerId: pickNumber(raw, 'makerId', 'maker_id'),
+    makerName: pickString(raw, 'makerName', 'maker_name'),
+    makerEmail: pickString(raw, 'makerEmail', 'maker_email'),
+    submittedAt: pickString(raw, 'submittedAt', 'submitted_at'),
+    changedFields: pickStringArray(raw, 'changedFields', 'changed_fields'),
+    proposedData: pickRecord(raw, 'proposedData', 'proposed_data'),
+    previousData: pickRecord(raw, 'previousData', 'previous_data'),
   };
 }
 

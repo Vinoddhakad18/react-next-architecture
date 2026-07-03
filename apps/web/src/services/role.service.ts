@@ -8,6 +8,7 @@ import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalReque
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
 import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/approval/entityApproval';
+import { pickField, toBooleanFlag } from '@/lib/api/fieldAccess';
 import type { Role, RoleListParams, RoleListResponse } from '@/types/api';
 import type { PagePermissions } from '@/types/api';
 
@@ -124,7 +125,8 @@ export function normalizeRole(role: Record<string, unknown>): Role {
     description: role.description ? String(role.description) : undefined,
     isActive,
     approval,
-    isPendingCreate: role.isPendingCreate === true,
+    isPendingCreate:
+      toBooleanFlag(pickField(role, 'isPendingCreate', 'is_pending_create')),
     approvalStatus: approval
       ? resolveEntityApprovalStatus(approval)
       : resolveApprovalStatus(

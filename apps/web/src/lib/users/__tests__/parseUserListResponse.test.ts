@@ -97,4 +97,47 @@ describe('normalizeUser approval mapping', () => {
     const user = normalizeUser(sampleApiResponse.data.data[1] as Record<string, unknown>);
     expect(resolveUserApprovalStatus(user.approval)).toBe('approved');
   });
+
+  it('parses snake_case approval and pending_creates from backend responses', () => {
+    const result = parseUserListResponse({
+      success: true,
+      data: {
+        data: [
+          {
+            id: 3,
+            full_name: 'Pending User',
+            email: 'pending@example.com',
+            role_id: 2,
+            role_name: 'Manager',
+            approval: {
+              has_pending: true,
+              request_id: 9,
+              request_no: 'APR-2026-000009',
+              action: 'UPDATE',
+              status: 'PENDING',
+              proposed_data: { name: 'Pending User Updated' },
+              previous_data: { name: 'Pending User' },
+            },
+          },
+        ],
+        pending_creates: [
+          {
+            id: 0,
+            full_name: 'Draft User',
+            email: 'draft@example.com',
+            is_pending_create: true,
+            approval: { has_pending: true, request_id: 10, status: 'PENDING' },
+          },
+        ],
+        pagination: { total: 2, page: 1, limit: 10, total_pages: 1 },
+      },
+      permissions: { menu: '/admin/users', view: true, approval: 1 },
+    });
+
+    expect(result.data[0].approval?.requestId).toBe(9);
+    expect(result.data[0].approval?.requestNo).toBe('APR-2026-000009');
+    expect(result.pendingCreates).toHaveLength(1);
+    expect(result.pendingCreates?.[0].isPendingCreate).toBe(true);
+    expect(result.pendingCreates?.[0].approval?.requestId).toBe(10);
+  });
 });

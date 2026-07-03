@@ -8,6 +8,8 @@ import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 import { invalidateMenuCachePattern } from '@/lib/utils/cache';
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
+import { extractPagePermissions } from '@/lib/api/permissions';
+import { normalizeMenu } from '@/services/menu.service';
 
 /**
  * GET /api/v1/menus
@@ -130,23 +132,9 @@ export async function GET(request: NextRequest) {
         console.error('[Menu API] backendData.data is not an array:', typeof menuItems, menuItems);
       }
       
-      const normalizedMenus = (Array.isArray(menuItems) ? menuItems : []).map((menu: any) => {
-        const route = menu.route || menu.slug || '';
-        const slug = menu.slug || route.replace(/^\//, '').replace(/\//g, '-') || '';
-        
-        return {
-          id: menu.id,
-          name: menu.name,
-          slug,
-          route,
-          description: menu.description,
-          sortOrder: menu.sortOrder ?? menu.sort_order ?? 0,
-          isActive: menu.isActive ?? menu.is_active ?? true,
-          parentId: menu.parentId ?? menu.parent_id ?? null,
-          createdAt: menu.createdAt || menu.created_at || new Date().toISOString(),
-          updatedAt: menu.updatedAt || menu.updated_at || new Date().toISOString(),
-        };
-      });
+      const normalizedMenus = (Array.isArray(menuItems) ? menuItems : []).map((menu: Record<string, unknown>) =>
+        normalizeMenu(menu)
+      );
 
       // Normalize pagination (backend uses 'pagination', we use 'meta')
       const pagination = backendData.pagination || backendData.meta || {
@@ -223,7 +211,13 @@ export async function GET(request: NextRequest) {
     console.log('[Menu API] Final menuData.data length:', menuData.data.length);
 
     // Return the MenuListResponse directly (API client will wrap it in { data, error, success })
-    return NextResponse.json(menuData, { status: 200 });
+    return NextResponse.json(
+      {
+        ...menuData,
+        permissions: extractPagePermissions(data),
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Menu API error:', error);
     return NextResponse.json(

@@ -30,4 +30,23 @@ describe('normalizeUser', () => {
     expect(result.status).toBe('inactive');
     expect(result.branchIds).toEqual([]);
   });
+
+  it('maps snake_case nested approval fields', () => {
+    const result = normalizeUser({
+      id: 2,
+      full_name: 'Test User',
+      email: 'test@example.com',
+      approval: {
+        has_pending: true,
+        request_id: 7,
+        request_no: 'APR-2026-000007',
+        previous_data: { branch_ids: [1, 2] },
+      },
+    });
+
+    expect(result.approval?.hasPending).toBe(true);
+    expect(result.approval?.requestId).toBe(7);
+    expect(result.approval?.requestNo).toBe('APR-2026-000007');
+    expect(result.approvalStatus).toBe('pending');
+  });
 });
