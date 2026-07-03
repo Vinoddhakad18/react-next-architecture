@@ -4,7 +4,7 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { parseUserListResponse } from '@/lib/users/parseUserListResponse';
 import { normalizeUser } from '@/lib/utils/normalizeUser';
 import type { User, UserListParams, UserListResponse, CreateUserRequest, UpdateUserRequest } from '@/types/api/user';
@@ -69,14 +69,24 @@ export const userService = {
     );
   },
 
-  /** Approve a maker-checker request by approval request ID. */
-  async approveUserRequest(requestId: number) {
-    return approveEntity(API_ENDPOINTS.APPROVALS.APPROVE(requestId));
+  /** Approve: POST body `{ comment }` */
+  async approveUserRequest(requestId: number, comment: string) {
+    const result = await apiClient.post<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.USERS.APPROVAL_APPROVE(requestId),
+      { comment: comment.trim() },
+      { auth: true }
+    );
+    return { success: result.success, error: result.error };
   },
 
-  /** Reject a maker-checker request by approval request ID. */
-  async rejectUserRequest(requestId: number, reason?: string) {
-    return rejectEntity(API_ENDPOINTS.APPROVALS.REJECT(requestId), reason);
+  /** Reject: POST body `{ reason }` */
+  async rejectUserRequest(requestId: number, reason: string) {
+    const result = await apiClient.post<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.USERS.APPROVAL_REJECT(requestId),
+      { reason: reason.trim() },
+      { auth: true }
+    );
+    return { success: result.success, error: result.error };
   },
 
   async toggleUserStatus(id: string, active: boolean) {

@@ -3,6 +3,7 @@
  */
 
 import type { ApprovalStatus } from './common';
+import type { EntityApprovalInfo } from './approval';
 
 export interface Role {
   id: number;
@@ -11,6 +12,8 @@ export interface Role {
   permissions?: string[];
   isActive: boolean;
   approvalStatus?: ApprovalStatus;
+  approval?: EntityApprovalInfo;
+  isPendingCreate?: boolean;
   createdAt: string;
   updatedAt: string;
 }

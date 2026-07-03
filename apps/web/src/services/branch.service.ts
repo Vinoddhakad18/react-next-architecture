@@ -4,8 +4,10 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
+import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
+import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/approval/entityApproval';
 import type { ApiResponse, PagePermissions } from '@/types/api';
 import type { Branch, BranchListParams, BranchListResponse, BranchTreeNode, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
 
@@ -99,12 +101,12 @@ export const branchService = {
     );
   },
 
-  async approveBranch(id: number) {
-    return approveEntity(API_ENDPOINTS.BRANCHES.APPROVE(id));
+  async approveBranchRequest(requestId: number, comment: string) {
+    return postApprovalApprove(API_ENDPOINTS.BRANCHES.APPROVAL_APPROVE(requestId), comment);
   },
 
-  async rejectBranch(id: number, reason?: string) {
-    return rejectEntity(API_ENDPOINTS.BRANCHES.REJECT(id), reason);
+  async rejectBranchRequest(requestId: number, reason: string) {
+    return postApprovalReject(API_ENDPOINTS.BRANCHES.APPROVAL_REJECT(requestId), reason);
   },
 
   async toggleBranchStatus(id: number, active: boolean) {
@@ -117,16 +119,21 @@ export const branchService = {
 };
 
 export function normalizeBranch(branch: Record<string, unknown>): Branch {
+  const approval = normalizeApprovalObject(branch.approval);
   return {
     id: Number(branch.id),
     branchName: String(branch.branch_name ?? branch.branchName ?? ''),
     branchCode: String(branch.branch_code ?? branch.branchCode ?? ''),
     address: String(branch.address ?? ''),
     status: String(branch.status ?? ''),
-    approvalStatus: resolveApprovalStatus(
-      branch.approval_status ?? branch.approvalStatus,
-      branch.status
-    ),
+    approval,
+    isPendingCreate: branch.isPendingCreate === true,
+    approvalStatus: approval
+      ? resolveEntityApprovalStatus(approval)
+      : resolveApprovalStatus(
+          branch.approval_status ?? branch.approvalStatus,
+          branch.status
+        ),
   };
 }
 

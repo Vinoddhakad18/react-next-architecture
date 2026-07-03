@@ -4,8 +4,10 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
+import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
+import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/approval/entityApproval';
 import type { Menu, MenuListParams, MenuListResponse } from '@/types/api';
 import type { PagePermissions } from '@/types/api';
 
@@ -114,12 +116,12 @@ export const menuService = {
     return apiClient.delete<void>(API_ENDPOINTS.MENUS.DELETE(id), { auth: true });
   },
 
-  async approveMenu(id: number) {
-    return approveEntity(API_ENDPOINTS.MENUS.APPROVE(id));
+  async approveMenuRequest(requestId: number, comment: string) {
+    return postApprovalApprove(API_ENDPOINTS.MENUS.APPROVAL_APPROVE(requestId), comment);
   },
 
-  async rejectMenu(id: number, reason?: string) {
-    return rejectEntity(API_ENDPOINTS.MENUS.REJECT(id), reason);
+  async rejectMenuRequest(requestId: number, reason: string) {
+    return postApprovalReject(API_ENDPOINTS.MENUS.APPROVAL_REJECT(requestId), reason);
   },
 
   async toggleMenuStatus(id: number, active: boolean) {
@@ -133,6 +135,7 @@ export const menuService = {
 
 export function normalizeMenu(menu: Record<string, unknown>): Menu {
   const isActive = Boolean(menu.is_active ?? menu.isActive ?? true);
+  const approval = normalizeApprovalObject(menu.approval);
   return {
     id: Number(menu.id),
     name: String(menu.name ?? ''),
@@ -141,10 +144,14 @@ export function normalizeMenu(menu: Record<string, unknown>): Menu {
     description: menu.description ? String(menu.description) : undefined,
     sortOrder: Number(menu.sort_order ?? menu.sortOrder ?? 0),
     isActive,
-    approvalStatus: resolveApprovalStatus(
-      menu.approval_status ?? menu.approvalStatus,
-      menu.is_active ?? menu.isActive
-    ),
+    approval,
+    isPendingCreate: menu.isPendingCreate === true,
+    approvalStatus: approval
+      ? resolveEntityApprovalStatus(approval)
+      : resolveApprovalStatus(
+          menu.approval_status ?? menu.approvalStatus,
+          menu.is_active ?? menu.isActive
+        ),
     parentId: menu.parent_id !== undefined ? Number(menu.parent_id) : menu.parentId !== undefined ? Number(menu.parentId) : null,
     createdAt: String(menu.created_at ?? menu.createdAt ?? new Date().toISOString()),
     updatedAt: String(menu.updated_at ?? menu.updatedAt ?? new Date().toISOString()),

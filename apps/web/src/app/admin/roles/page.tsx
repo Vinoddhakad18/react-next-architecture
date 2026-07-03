@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Role, RoleListParams } from '@/types/api';
-import { ActionButton, Button, Modal, Input, Checkbox, RowActions, ExportButton, ApprovalStatusBadge } from '@/components/ui';
+import { ActionButton, Button, Modal, Input, Checkbox, RowActions, ExportButton, EntityApprovalCell, EntityApprovalReviewModal, UserApprovalActionModal } from '@/components/ui';
 import { roleService, normalizeRole } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
+import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
 
 interface RoleFormData {
   name: string;
@@ -81,14 +82,7 @@ export default function RoleManagementPage() {
           if (roleListResponse.data && typeof roleListResponse.data === 'object' && roleListResponse.data.data && Array.isArray(roleListResponse.data.data)) {
             const backendData = roleListResponse.data;
             
-            rolesArray = backendData.data.map((role: any) => ({
-              id: role.id,
-              name: role.name,
-              description: role.description,
-              isActive: role.status ?? role.is_active ?? role.isActive ?? true,
-              createdAt: role.created_at || role.createdAt || new Date().toISOString(),
-              updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
-            }));
+            rolesArray = backendData.data.map((role: Record<string, unknown>) => normalizeRole(role));
             
             const pagination = backendData.pagination || backendData.meta || {};
             paginationData = {
@@ -101,14 +95,7 @@ export default function RoleManagementPage() {
             const backendData = roleListResponse.data;
             
             if (backendData.data && Array.isArray(backendData.data)) {
-              rolesArray = backendData.data.map((role: any) => ({
-                id: role.id,
-                name: role.name,
-                description: role.description,
-                isActive: role.status ?? role.is_active ?? role.isActive ?? true,
-                createdAt: role.created_at || role.createdAt || new Date().toISOString(),
-                updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
-              }));
+              rolesArray = backendData.data.map((role: Record<string, unknown>) => normalizeRole(role));
               
               const pagination = backendData.pagination || backendData.meta || {};
               paginationData = {
@@ -120,14 +107,7 @@ export default function RoleManagementPage() {
             }
           }
         } else if (Array.isArray(roleListResponse)) {
-          rolesArray = roleListResponse.map((role: any) => ({
-            id: role.id,
-            name: role.name,
-            description: role.description,
-            isActive: role.status ?? role.is_active ?? role.isActive ?? true,
-            createdAt: role.created_at || role.createdAt || new Date().toISOString(),
-            updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
-          }));
+          rolesArray = roleListResponse.map((role: Record<string, unknown>) => normalizeRole(role));
           paginationData = {
             page: filters.page || 1,
             limit: filters.limit || 10,
@@ -136,14 +116,7 @@ export default function RoleManagementPage() {
           };
         } else if (roleListResponse && typeof roleListResponse === 'object' && roleListResponse.data) {
           if (Array.isArray(roleListResponse.data)) {
-            rolesArray = roleListResponse.data.map((role: any) => ({
-              id: role.id,
-              name: role.name,
-              description: role.description,
-              isActive: role.status ?? role.is_active ?? role.isActive ?? true,
-              createdAt: role.created_at || role.createdAt || new Date().toISOString(),
-              updatedAt: role.updated_at || role.updatedAt || new Date().toISOString(),
-            }));
+            rolesArray = roleListResponse.data.map((role: Record<string, unknown>) => normalizeRole(role));
             paginationData = {
               page: roleListResponse.meta?.page || filters.page || 1,
               limit: roleListResponse.meta?.limit || filters.limit || 10,
@@ -153,7 +126,7 @@ export default function RoleManagementPage() {
           }
         }
 
-        setRoles(rolesArray.map((role) => normalizeRole(role as unknown as Record<string, unknown>)));
+        setRoles(rolesArray);
         setPagination(paginationData);
       } else {
         setError(response.error?.message || 'Failed to fetch roles');
@@ -170,17 +143,33 @@ export default function RoleManagementPage() {
   const {
     workflowLoadingId,
     isExporting,
-    handleApprove,
-    handleReject,
     handleToggleStatus,
     handleExport,
   } = useEntityWorkflow({
     onRefresh: fetchRoles,
     onError: setError,
-    approve: (id) => roleService.approveRole(Number(id)),
-    reject: (id) => roleService.rejectRole(Number(id)),
     toggleStatus: (id, active) => roleService.toggleRoleStatus(Number(id), active),
     exportData: () => roleService.exportRoles(),
+  });
+
+  const {
+    reviewItem: reviewRole,
+    setReviewItem: setReviewRole,
+    approvalAction,
+    approvalComment,
+    rejectReason,
+    approvalActionError,
+    isSubmitting: isApprovalSubmitting,
+    openApprovalAction,
+    closeApprovalAction,
+    submitApprovalAction,
+    setApprovalComment,
+    setRejectReason,
+  } = useModuleApprovalUi<Role>({
+    onRefresh: fetchRoles,
+    onError: setError,
+    approveRequest: roleService.approveRoleRequest,
+    rejectRequest: roleService.rejectRoleRequest,
   });
 
   // Fetch roles on mount and when filters change
@@ -595,9 +584,12 @@ export default function RoleManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {Array.isArray(paginatedRoles) && paginatedRoles.map((role) => (
+                    {Array.isArray(paginatedRoles) && paginatedRoles.map((role) => {
+                      const requestId = role.approval?.requestId;
+
+                      return (
                       <tr 
-                        key={role.id} 
+                        key={`${role.id}-${requestId ?? 'row'}`}
                         className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-transparent transition-all duration-150"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -621,7 +613,18 @@ export default function RoleManagementPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <ApprovalStatusBadge status={role.approvalStatus} />
+                          <button
+                            type="button"
+                            className="text-left disabled:cursor-default"
+                            title={role.approval?.hasPending ? 'View requested changes' : undefined}
+                            onClick={() => setReviewRole(role)}
+                            disabled={!role.approval?.hasPending}
+                          >
+                            <EntityApprovalCell
+                              approval={role.approval}
+                              isPendingCreate={role.isPendingCreate}
+                            />
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(role.isActive)}
@@ -631,18 +634,38 @@ export default function RoleManagementPage() {
                             permissions={permissions}
                             approvalStatus={role.approvalStatus}
                             isActive={role.isActive}
-                            onEdit={() => handleEditRole(role)}
-                            onDelete={() => handleDeleteClick(role)}
-                            onApprove={() => handleApprove(role.id)}
-                            onReject={() => handleReject(role.id)}
-                            onToggleStatus={() => handleToggleStatus(role.id, !role.isActive)}
+                            approvalOnly={Boolean(role.approval?.hasPending)}
+                            onEdit={role.isPendingCreate ? undefined : () => handleEditRole(role)}
+                            onDelete={role.isPendingCreate ? undefined : () => handleDeleteClick(role)}
+                            onApprove={
+                              requestId && role.approval?.hasPending
+                                ? () => openApprovalAction(requestId, 'approve')
+                                : undefined
+                            }
+                            onReject={
+                              requestId && role.approval?.hasPending
+                                ? () => openApprovalAction(requestId, 'reject')
+                                : undefined
+                            }
+                            onToggleStatus={
+                              role.isPendingCreate
+                                ? undefined
+                                : () => handleToggleStatus(role.id, !role.isActive)
+                            }
                             canDelete={role.name !== 'super_admin'}
-                            actionLoading={workflowLoadingId === role.id || deletingRoleId === role.id}
+                            actionLoading={
+                              workflowLoadingId === role.id ||
+                              deletingRoleId === role.id ||
+                              (requestId != null &&
+                                isApprovalSubmitting &&
+                                approvalAction?.requestId === requestId)
+                            }
                             className="flex items-center space-x-3"
                           />
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -857,6 +880,29 @@ export default function RoleManagementPage() {
           </div>
         </div>
       </Modal>
+
+      <EntityApprovalReviewModal
+        isOpen={Boolean(reviewRole)}
+        approval={reviewRole?.approval}
+        permissions={permissions}
+        emptyMessage="No pending approval for this role."
+        onClose={() => setReviewRole(null)}
+        onApprove={(requestId) => openApprovalAction(requestId, 'approve')}
+        onReject={(requestId) => openApprovalAction(requestId, 'reject')}
+      />
+
+      <UserApprovalActionModal
+        isOpen={Boolean(approvalAction)}
+        type={approvalAction?.type ?? null}
+        comment={approvalComment}
+        reason={rejectReason}
+        error={approvalActionError}
+        isSubmitting={isApprovalSubmitting}
+        onCommentChange={setApprovalComment}
+        onReasonChange={setRejectReason}
+        onClose={closeApprovalAction}
+        onSubmit={submitApprovalAction}
+      />
     </div>
   );
 }

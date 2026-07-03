@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Menu, MenuListParams } from '@/types/api';
-import { ActionButton, Button, Modal, Input, Select, Checkbox, RowActions, ExportButton, ApprovalStatusBadge } from '@/components/ui';
+import { ActionButton, Button, Modal, Input, Select, Checkbox, RowActions, ExportButton, EntityApprovalCell, EntityApprovalReviewModal, UserApprovalActionModal } from '@/components/ui';
 import { menuService, normalizeMenu } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
+import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
 
 interface MenuFormData {
   name: string;
@@ -88,18 +89,7 @@ export default function MenuManagementPage() {
             const backendData = menuListResponse.data;
             
             // Extract and normalize the menus array from backendData.data
-            menusArray = backendData.data.map((menu: any) => ({
-              id: menu.id,
-              name: menu.name,
-              route: menu.route || menu.slug || '',
-              slug: menu.slug || menu.route?.replace(/^\//, '').replace(/\//g, '-') || '',
-              description: menu.description,
-              sortOrder: menu.sort_order ?? menu.sortOrder ?? 0,
-              isActive: menu.is_active ?? menu.isActive ?? true,
-              parentId: menu.parent_id ?? menu.parentId ?? null,
-              createdAt: menu.created_at || menu.createdAt || new Date().toISOString(),
-              updatedAt: menu.updated_at || menu.updatedAt || new Date().toISOString(),
-            }));
+            menusArray = backendData.data.map((menu: Record<string, unknown>) => normalizeMenu(menu));
             
             // Extract pagination from backendData.pagination
             const pagination = backendData.pagination || backendData.meta || {};
@@ -115,18 +105,7 @@ export default function MenuManagementPage() {
             const backendData = menuListResponse.data;
             
             if (backendData.data && Array.isArray(backendData.data)) {
-              menusArray = backendData.data.map((menu: any) => ({
-                id: menu.id,
-                name: menu.name,
-                route: menu.route || menu.slug || '',
-                slug: menu.slug || menu.route?.replace(/^\//, '').replace(/\//g, '-') || '',
-                description: menu.description,
-                sortOrder: menu.sort_order ?? menu.sortOrder ?? 0,
-                isActive: menu.is_active ?? menu.isActive ?? true,
-                parentId: menu.parent_id ?? menu.parentId ?? null,
-                createdAt: menu.created_at || menu.createdAt || new Date().toISOString(),
-                updatedAt: menu.updated_at || menu.updatedAt || new Date().toISOString(),
-              }));
+              menusArray = backendData.data.map((menu: Record<string, unknown>) => normalizeMenu(menu));
               
               const pagination = backendData.pagination || backendData.meta || {};
               paginationData = {
@@ -140,7 +119,7 @@ export default function MenuManagementPage() {
         }
         // Check if response.data is directly an array
         else if (Array.isArray(menuListResponse)) {
-          menusArray = menuListResponse;
+          menusArray = menuListResponse.map((menu: Record<string, unknown>) => normalizeMenu(menu));
           paginationData = {
             page: filters.page || 1,
             limit: filters.limit || 10,
@@ -161,7 +140,7 @@ export default function MenuManagementPage() {
           }
         }
 
-        setMenus(menusArray.map((menu) => normalizeMenu(menu as unknown as Record<string, unknown>)));
+        setMenus(menusArray);
         setPagination(paginationData);
       } else {
         setError(response.error?.message || 'Failed to fetch menus');
@@ -178,17 +157,33 @@ export default function MenuManagementPage() {
   const {
     workflowLoadingId,
     isExporting,
-    handleApprove,
-    handleReject,
     handleToggleStatus,
     handleExport,
   } = useEntityWorkflow({
     onRefresh: fetchMenus,
     onError: setError,
-    approve: (id) => menuService.approveMenu(Number(id)),
-    reject: (id) => menuService.rejectMenu(Number(id)),
     toggleStatus: (id, active) => menuService.toggleMenuStatus(Number(id), active),
     exportData: () => menuService.exportMenus(),
+  });
+
+  const {
+    reviewItem: reviewMenu,
+    setReviewItem: setReviewMenu,
+    approvalAction,
+    approvalComment,
+    rejectReason,
+    approvalActionError,
+    isSubmitting: isApprovalSubmitting,
+    openApprovalAction,
+    closeApprovalAction,
+    submitApprovalAction,
+    setApprovalComment,
+    setRejectReason,
+  } = useModuleApprovalUi<Menu>({
+    onRefresh: fetchMenus,
+    onError: setError,
+    approveRequest: menuService.approveMenuRequest,
+    rejectRequest: menuService.rejectMenuRequest,
   });
 
   // Fetch menus on mount and when filters change
@@ -701,9 +696,12 @@ export default function MenuManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {Array.isArray(paginatedMenus) && paginatedMenus.map((menu) => (
+                    {Array.isArray(paginatedMenus) && paginatedMenus.map((menu) => {
+                      const requestId = menu.approval?.requestId;
+
+                      return (
                       <tr 
-                        key={menu.id} 
+                        key={`${menu.id}-${requestId ?? 'row'}`}
                         className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-transparent transition-all duration-150"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -735,7 +733,18 @@ export default function MenuManagementPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <ApprovalStatusBadge status={menu.approvalStatus} />
+                          <button
+                            type="button"
+                            className="text-left disabled:cursor-default"
+                            title={menu.approval?.hasPending ? 'View requested changes' : undefined}
+                            onClick={() => setReviewMenu(menu)}
+                            disabled={!menu.approval?.hasPending}
+                          >
+                            <EntityApprovalCell
+                              approval={menu.approval}
+                              isPendingCreate={menu.isPendingCreate}
+                            />
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(menu.isActive)}
@@ -745,17 +754,37 @@ export default function MenuManagementPage() {
                             permissions={permissions}
                             approvalStatus={menu.approvalStatus}
                             isActive={menu.isActive}
-                            onEdit={() => handleEditMenu(menu)}
-                            onDelete={() => handleDeleteClick(menu)}
-                            onApprove={() => handleApprove(menu.id)}
-                            onReject={() => handleReject(menu.id)}
-                            onToggleStatus={() => handleToggleStatus(menu.id, !menu.isActive)}
-                            actionLoading={workflowLoadingId === menu.id || deletingMenuId === menu.id}
+                            approvalOnly={Boolean(menu.approval?.hasPending)}
+                            onEdit={menu.isPendingCreate ? undefined : () => handleEditMenu(menu)}
+                            onDelete={menu.isPendingCreate ? undefined : () => handleDeleteClick(menu)}
+                            onApprove={
+                              requestId && menu.approval?.hasPending
+                                ? () => openApprovalAction(requestId, 'approve')
+                                : undefined
+                            }
+                            onReject={
+                              requestId && menu.approval?.hasPending
+                                ? () => openApprovalAction(requestId, 'reject')
+                                : undefined
+                            }
+                            onToggleStatus={
+                              menu.isPendingCreate
+                                ? undefined
+                                : () => handleToggleStatus(menu.id, !menu.isActive)
+                            }
+                            actionLoading={
+                              workflowLoadingId === menu.id ||
+                              deletingMenuId === menu.id ||
+                              (requestId != null &&
+                                isApprovalSubmitting &&
+                                approvalAction?.requestId === requestId)
+                            }
                             className="flex items-center space-x-3"
                           />
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -999,6 +1028,29 @@ export default function MenuManagementPage() {
           </div>
         </div>
       </Modal>
+
+      <EntityApprovalReviewModal
+        isOpen={Boolean(reviewMenu)}
+        approval={reviewMenu?.approval}
+        permissions={permissions}
+        emptyMessage="No pending approval for this menu."
+        onClose={() => setReviewMenu(null)}
+        onApprove={(requestId) => openApprovalAction(requestId, 'approve')}
+        onReject={(requestId) => openApprovalAction(requestId, 'reject')}
+      />
+
+      <UserApprovalActionModal
+        isOpen={Boolean(approvalAction)}
+        type={approvalAction?.type ?? null}
+        comment={approvalComment}
+        reason={rejectReason}
+        error={approvalActionError}
+        isSubmitting={isApprovalSubmitting}
+        onCommentChange={setApprovalComment}
+        onReasonChange={setRejectReason}
+        onClose={closeApprovalAction}
+        onSubmit={submitApprovalAction}
+      />
     </div>
   );
 }

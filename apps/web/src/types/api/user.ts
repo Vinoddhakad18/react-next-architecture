@@ -81,3 +81,13 @@ export interface UpdateUserRequest {
   roleId?: number;
   branchIds?: number[];
 }
+
+/** Body for POST /users/approvals/{requestId}/approve */
+export interface UserApprovalApproveRequest {
+  comment: string;
+}
+
+/** Body for POST /users/approvals/{requestId}/reject */
+export interface UserApprovalRejectRequest {
+  reason: string;
+}

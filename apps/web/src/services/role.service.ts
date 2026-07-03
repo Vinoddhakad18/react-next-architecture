@@ -4,8 +4,10 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import { approveEntity, rejectEntity, toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
+import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
+import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
+import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/approval/entityApproval';
 import type { Role, RoleListParams, RoleListResponse } from '@/types/api';
 import type { PagePermissions } from '@/types/api';
 
@@ -95,12 +97,12 @@ export const roleService = {
     return apiClient.delete<void>(API_ENDPOINTS.ROLES.DELETE(id), { auth: true });
   },
 
-  async approveRole(id: number) {
-    return approveEntity(API_ENDPOINTS.ROLES.APPROVE(id));
+  async approveRoleRequest(requestId: number, comment: string) {
+    return postApprovalApprove(API_ENDPOINTS.ROLES.APPROVAL_APPROVE(requestId), comment);
   },
 
-  async rejectRole(id: number, reason?: string) {
-    return rejectEntity(API_ENDPOINTS.ROLES.REJECT(id), reason);
+  async rejectRoleRequest(requestId: number, reason: string) {
+    return postApprovalReject(API_ENDPOINTS.ROLES.APPROVAL_REJECT(requestId), reason);
   },
 
   async toggleRoleStatus(id: number, active: boolean) {
@@ -115,15 +117,20 @@ export const roleService = {
 /** Map a raw API role record to the frontend Role shape. */
 export function normalizeRole(role: Record<string, unknown>): Role {
   const isActive = Boolean(role.status ?? role.is_active ?? role.isActive ?? true);
+  const approval = normalizeApprovalObject(role.approval);
   return {
     id: Number(role.id),
     name: String(role.name ?? ''),
     description: role.description ? String(role.description) : undefined,
     isActive,
-    approvalStatus: resolveApprovalStatus(
-      role.approval_status ?? role.approvalStatus,
-      role.status ?? role.is_active
-    ),
+    approval,
+    isPendingCreate: role.isPendingCreate === true,
+    approvalStatus: approval
+      ? resolveEntityApprovalStatus(approval)
+      : resolveApprovalStatus(
+          role.approval_status ?? role.approvalStatus,
+          role.status ?? role.is_active
+        ),
     createdAt: String(role.created_at ?? role.createdAt ?? new Date().toISOString()),
     updatedAt: String(role.updated_at ?? role.updatedAt ?? new Date().toISOString()),
   };

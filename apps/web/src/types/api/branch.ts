@@ -3,6 +3,7 @@
  */
 
 import type { ApprovalStatus } from './common';
+import type { EntityApprovalInfo } from './approval';
 
 export interface Branch {
   id: number;
@@ -11,6 +12,8 @@ export interface Branch {
   address: string;
   status: string;
   approvalStatus?: ApprovalStatus;
+  approval?: EntityApprovalInfo;
+  isPendingCreate?: boolean;
 }
 
 export interface BranchTreeNode {

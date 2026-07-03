@@ -2,10 +2,11 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { Branch, BranchListParams, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
-import { ActionButton, Button, Input, Modal, Select, RowActions, ExportButton, ApprovalStatusBadge } from '@/components/ui';
+import { ActionButton, Button, Input, Modal, Select, RowActions, ExportButton, EntityApprovalCell, EntityApprovalReviewModal, UserApprovalActionModal } from '@/components/ui';
 import { branchService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
+import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
 
 export default function BranchManagementPage() {
   const [filters, setFilters] = useState<BranchListParams>({
@@ -72,17 +73,33 @@ export default function BranchManagementPage() {
   const {
     workflowLoadingId,
     isExporting,
-    handleApprove,
-    handleReject,
     handleToggleStatus,
     handleExport,
   } = useEntityWorkflow({
     onRefresh: fetchBranches,
     onError: setError,
-    approve: (id) => branchService.approveBranch(Number(id)),
-    reject: (id) => branchService.rejectBranch(Number(id)),
     toggleStatus: (id, active) => branchService.toggleBranchStatus(Number(id), active),
     exportData: () => branchService.exportBranches(),
+  });
+
+  const {
+    reviewItem: reviewBranch,
+    setReviewItem: setReviewBranch,
+    approvalAction,
+    approvalComment,
+    rejectReason,
+    approvalActionError,
+    isSubmitting: isApprovalSubmitting,
+    openApprovalAction,
+    closeApprovalAction,
+    submitApprovalAction,
+    setApprovalComment,
+    setRejectReason,
+  } = useModuleApprovalUi<Branch>({
+    onRefresh: fetchBranches,
+    onError: setError,
+    approveRequest: branchService.approveBranchRequest,
+    rejectRequest: branchService.rejectBranchRequest,
   });
 
   useEffect(() => {
@@ -283,30 +300,64 @@ export default function BranchManagementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {branches.map((branch) => (
-                  <tr key={branch.id}>
+                {branches.map((branch) => {
+                  const requestId = branch.approval?.requestId;
+                  const isActive = branch.status?.toLowerCase() === 'active';
+
+                  return (
+                  <tr key={`${branch.id}-${requestId ?? 'row'}`}>
                     <td className="px-6 py-4 text-slate-900">{branch.branchName}</td>
                     <td className="px-6 py-4 text-slate-700">{branch.branchCode}</td>
                     <td className="px-6 py-4 text-slate-700">{branch.address}</td>
                     <td className="px-6 py-4 text-slate-700">
-                      <ApprovalStatusBadge status={branch.approvalStatus} />
+                      <button
+                        type="button"
+                        className="text-left disabled:cursor-default"
+                        title={branch.approval?.hasPending ? 'View requested changes' : undefined}
+                        onClick={() => setReviewBranch(branch)}
+                        disabled={!branch.approval?.hasPending}
+                      >
+                        <EntityApprovalCell
+                          approval={branch.approval}
+                          isPendingCreate={branch.isPendingCreate}
+                        />
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-slate-700">{branch.status}</td>
                     <td className="px-6 py-4 text-slate-700">
                       <RowActions
                         permissions={permissions}
                         approvalStatus={branch.approvalStatus}
-                        isActive={branch.status?.toLowerCase() === 'active'}
-                        onEdit={() => handleEditBranch(branch)}
-                        onDelete={() => handleDeleteClick(branch)}
-                        onApprove={() => handleApprove(branch.id)}
-                        onReject={() => handleReject(branch.id)}
-                        onToggleStatus={() => handleToggleStatus(branch.id, branch.status?.toLowerCase() !== 'active')}
-                        actionLoading={workflowLoadingId === branch.id}
+                        isActive={isActive}
+                        approvalOnly={Boolean(branch.approval?.hasPending)}
+                        onEdit={branch.isPendingCreate ? undefined : () => handleEditBranch(branch)}
+                        onDelete={branch.isPendingCreate ? undefined : () => handleDeleteClick(branch)}
+                        onApprove={
+                          requestId && branch.approval?.hasPending
+                            ? () => openApprovalAction(requestId, 'approve')
+                            : undefined
+                        }
+                        onReject={
+                          requestId && branch.approval?.hasPending
+                            ? () => openApprovalAction(requestId, 'reject')
+                            : undefined
+                        }
+                        onToggleStatus={
+                          branch.isPendingCreate
+                            ? undefined
+                            : () => handleToggleStatus(branch.id, !isActive)
+                        }
+                        actionLoading={
+                          workflowLoadingId === branch.id ||
+                          (requestId != null &&
+                            isApprovalSubmitting &&
+                            approvalAction?.requestId === requestId)
+                        }
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -409,6 +460,29 @@ export default function BranchManagementPage() {
           </div>
         </div>
       </div>
+
+      <EntityApprovalReviewModal
+        isOpen={Boolean(reviewBranch)}
+        approval={reviewBranch?.approval}
+        permissions={permissions}
+        emptyMessage="No pending approval for this branch."
+        onClose={() => setReviewBranch(null)}
+        onApprove={(requestId) => openApprovalAction(requestId, 'approve')}
+        onReject={(requestId) => openApprovalAction(requestId, 'reject')}
+      />
+
+      <UserApprovalActionModal
+        isOpen={Boolean(approvalAction)}
+        type={approvalAction?.type ?? null}
+        comment={approvalComment}
+        reason={rejectReason}
+        error={approvalActionError}
+        isSubmitting={isApprovalSubmitting}
+        onCommentChange={setApprovalComment}
+        onReasonChange={setRejectReason}
+        onClose={closeApprovalAction}
+        onSubmit={submitApprovalAction}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from '@/types/api/user';
 import type { BranchTreeNode } from '@/types/api/branch';
-import { Button, Input, Modal, Select, RowActions, BranchTreeSelect, ExportButton, UserApprovalCell } from '@/components/ui';
+import { Button, Input, Modal, Select, RowActions, BranchTreeSelect, ExportButton, UserApprovalCell, UserApprovalCompare, UserApprovalActionModal } from '@/components/ui';
 import { userService, roleService, branchService } from '@/services';
 import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
@@ -32,6 +32,13 @@ export default function UserManagementPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [reviewUser, setReviewUser] = useState<User | null>(null);
+  const [approvalAction, setApprovalAction] = useState<{
+    requestId: number;
+    type: 'approve' | 'reject';
+  } | null>(null);
+  const [approvalComment, setApprovalComment] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [approvalActionError, setApprovalActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState<UpdateUserRequest>({
@@ -99,20 +106,70 @@ export default function UserManagementPage() {
   }, [filters, searchTerm, setFromResponse]);
 
   const {
-    workflowLoadingId,
     isExporting,
-    handleApprove,
-    handleReject,
     handleToggleStatus,
     handleExport,
   } = useEntityWorkflow({
     onRefresh: fetchUsers,
     onError: setError,
-    approve: (id) => userService.approveUserRequest(Number(id)),
-    reject: (id) => userService.rejectUserRequest(Number(id)),
     toggleStatus: (id, active) => userService.toggleUserStatus(String(id), active),
     exportData: () => userService.exportUsers(),
   });
+
+  const openApprovalAction = (requestId: number, type: 'approve' | 'reject') => {
+    setApprovalAction({ requestId, type });
+    setApprovalActionError(null);
+    if (type === 'approve') {
+      setApprovalComment('');
+    } else {
+      setRejectReason('');
+    }
+  };
+
+  const closeApprovalAction = () => {
+    setApprovalAction(null);
+    setApprovalActionError(null);
+    setApprovalComment('');
+    setRejectReason('');
+  };
+
+  const submitApprovalAction = async () => {
+    if (!approvalAction) return;
+
+    const { requestId, type } = approvalAction;
+
+    if (type === 'approve' && !approvalComment.trim()) {
+      setApprovalActionError('Comment is required');
+      return;
+    }
+    if (type === 'reject' && !rejectReason.trim()) {
+      setApprovalActionError('Reason is required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setApprovalActionError(null);
+    setError(null);
+
+    try {
+      const result =
+        type === 'approve'
+          ? await userService.approveUserRequest(requestId, approvalComment)
+          : await userService.rejectUserRequest(requestId, rejectReason);
+
+      if (result.success) {
+        closeApprovalAction();
+        setReviewUser(null);
+        await fetchUsers();
+      } else {
+        setApprovalActionError(result.error?.message || 'Action failed');
+      }
+    } catch (err) {
+      setApprovalActionError(err instanceof Error ? err.message : 'An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -328,7 +385,7 @@ export default function UserManagementPage() {
                         type="button"
                         className="text-left disabled:cursor-default"
                         title={user.approval?.hasPending ? 'View requested changes' : undefined}
-                        onClick={() => user.approval?.hasPending && setReviewUser(user)}
+                        onClick={() => setReviewUser(user)}
                         disabled={!user.approval?.hasPending}
                       >
                         <UserApprovalCell user={user} />
@@ -345,12 +402,12 @@ export default function UserManagementPage() {
                         onDelete={user.isPendingCreate ? undefined : () => handleDeleteClick(user)}
                         onApprove={
                           requestId && user.approval?.hasPending
-                            ? () => handleApprove(requestId)
+                            ? () => openApprovalAction(requestId, 'approve')
                             : undefined
                         }
                         onReject={
                           requestId && user.approval?.hasPending
-                            ? () => handleReject(requestId)
+                            ? () => openApprovalAction(requestId, 'reject')
                             : undefined
                         }
                         onToggleStatus={
@@ -359,7 +416,11 @@ export default function UserManagementPage() {
                             : () => handleToggleStatus(user.id, !isActive)
                         }
                         canDelete={user.roleName !== 'super_admin'}
-                        actionLoading={requestId != null && workflowLoadingId === requestId}
+                        actionLoading={
+                          requestId != null &&
+                          isSubmitting &&
+                          approvalAction?.requestId === requestId
+                        }
                       />
                     </td>
                   </tr>
@@ -553,41 +614,24 @@ export default function UserManagementPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 p-4">
-                <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Current values</p>
-                <pre className="overflow-x-auto text-xs text-slate-700 whitespace-pre-wrap">
-                  {JSON.stringify(reviewUser.approval.previousData ?? {}, null, 2)}
-                </pre>
-              </div>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="mb-2 text-xs font-semibold uppercase text-amber-800">Requested changes</p>
-                <pre className="overflow-x-auto text-xs text-amber-900 whitespace-pre-wrap">
-                  {JSON.stringify(reviewUser.approval.proposedData ?? {}, null, 2)}
-                </pre>
-              </div>
-            </div>
+            <UserApprovalCompare
+              previousData={reviewUser.approval.previousData}
+              proposedData={reviewUser.approval.proposedData}
+              changedFields={reviewUser.approval.changedFields}
+            />
 
             {reviewUser.approval.requestId && permissions.approval ? (
               <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
                 <Button
                   variant="outline"
                   className="border-rose-300 text-rose-700 hover:bg-rose-50"
-                  onClick={() => {
-                    const id = reviewUser.approval?.requestId;
-                    if (id) handleReject(id);
-                    setReviewUser(null);
-                  }}
+                  onClick={() => openApprovalAction(reviewUser.approval!.requestId!, 'reject')}
                 >
                   Reject
                 </Button>
                 <Button
                   variant="primary"
-                  onClick={() => {
-                    const id = reviewUser.approval?.requestId;
-                    if (id) handleApprove(id);
-                    setReviewUser(null);
-                  }}
+                  onClick={() => openApprovalAction(reviewUser.approval!.requestId!, 'approve')}
                 >
                   Approve
                 </Button>
@@ -598,6 +642,19 @@ export default function UserManagementPage() {
           <p className="text-sm text-slate-600">No pending approval for this user.</p>
         )}
       </Modal>
+
+      <UserApprovalActionModal
+        isOpen={Boolean(approvalAction)}
+        type={approvalAction?.type ?? null}
+        comment={approvalComment}
+        reason={rejectReason}
+        error={approvalActionError}
+        isSubmitting={isSubmitting}
+        onCommentChange={setApprovalComment}
+        onReasonChange={setRejectReason}
+        onClose={closeApprovalAction}
+        onSubmit={submitApprovalAction}
+      />
     </div>
   );
 }
