@@ -8,6 +8,8 @@ import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 import { invalidateMenuCachePattern } from '@/lib/utils/cache';
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
+import { toSnakeCaseKeys } from '@/lib/api/snakeCase';
+import { readListQueryParams, toBackendListQueryString } from '@/lib/api/listQueryParams';
 import { extractPagePermissions } from '@/lib/api/permissions';
 import { normalizeMenu } from '@/services/menu.service';
 
@@ -32,35 +34,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Parse query parameters
     const { searchParams } = new URL(request.url);
-    const page = searchParams.get('page') || '1';
-    const limit = searchParams.get('limit') || '10';
-    const sortBy = searchParams.get('sortBy') || 'sort_order';
-    const sortOrder = searchParams.get('sortOrder') || 'ASC';
-    const search = searchParams.get('search') || '';
-    const isActive = searchParams.get('isActive');
-
-    // Build query string
-    const queryParams = new URLSearchParams({
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-    });
-
-    if (search) {
-      queryParams.append('search', search);
-    }
-
-    if (isActive !== null && isActive !== undefined) {
-      queryParams.append('isActive', isActive);
-    }
-
-    // Forward request to backend API
-    // Add cache-busting timestamp to ensure fresh data after cache invalidation
-    queryParams.append('_t', Date.now().toString());
-    const backendUrl = `${BACKEND_API_URL}/api/v1/menus?${queryParams.toString()}`;
+    const listQuery = readListQueryParams(searchParams, { sort_by: 'sort_order' });
+    const queryParams = toBackendListQueryString(listQuery, { includeCacheBuster: true });
+    const backendUrl = `${BACKEND_API_URL}/api/v1/menus?${queryParams}`;
 
     let response: Response;
     try {
@@ -275,7 +252,7 @@ export async function POST(request: NextRequest) {
           'X-API-Key': getBackendApiKey(),
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(toSnakeCaseKeys(body)),
         cache: 'no-store',
       });
     } catch (fetchError) {

@@ -3,7 +3,7 @@
  * Handles branch-related API calls
  */
 
-import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { apiClient, API_ENDPOINTS, buildListQueryString } from '@/lib/api';
 import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
@@ -15,25 +15,7 @@ import { extractBranchTreePayload } from '@/lib/utils/normalizeBranchTree';
 
 export const branchService = {
   async getBranches(params?: BranchListParams) {
-    const queryParams = new URLSearchParams();
-
-    if (params?.page) {
-      queryParams.append('page', params.page.toString());
-    }
-    if (params?.limit) {
-      queryParams.append('limit', params.limit.toString());
-    }
-    if (params?.sortBy) {
-      queryParams.append('sortBy', params.sortBy);
-    }
-    if (params?.sortOrder) {
-      queryParams.append('sortOrder', params.sortOrder);
-    }
-    if (params?.search) {
-      queryParams.append('search', params.search);
-    }
-
-    const endpoint = `${API_ENDPOINTS.BRANCHES.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `${API_ENDPOINTS.BRANCHES.LIST}${buildListQueryString(params)}`;
     const response = await apiClient.get<{ success: boolean; message: string; data: { data: any[]; pagination?: any; meta?: any }; permissions?: PagePermissions }>(endpoint, { auth: true });
 
     if (!response.success || !response.data) {
@@ -51,16 +33,21 @@ export const branchService = {
       totalPages: Math.ceil(normalizedBranches.length / (params?.limit || 10)),
     };
 
+    const perPage =
+      (pagination.per_page ?? pagination.limit ?? params?.limit) || 10;
+
     return {
       success: true,
       error: null,
       data: {
         data: normalizedBranches,
         meta: {
-          total: pagination.total ?? normalizedBranches.length,
+          total: pagination.total ?? pagination.total_records ?? normalizedBranches.length,
           page: pagination.page || params?.page || 1,
-          limit: pagination.limit || params?.limit || 10,
-          totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(normalizedBranches.length / (pagination.limit || params?.limit || 10)),
+          limit: perPage,
+          totalPages:
+            (pagination.total_pages ?? pagination.totalPages) ||
+            Math.ceil(normalizedBranches.length / perPage),
         },
         // Preserve the per-action permissions the backend returns so the page's
         // usePagePermissions/extractPagePermissions can read them. Without this,

@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: 'roleId is required',
-        error: 'roleId query parameter is required for permissions export',
+        message: 'role_id is required',
+        error: 'role_id query parameter is required for permissions export',
       },
       { status: 400 }
     );

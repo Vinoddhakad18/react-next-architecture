@@ -4,7 +4,6 @@ import { BACKEND_API_URL } from '@/lib/api/backendConfig';
 import { backendFetch, resolveRouteAuthToken } from '@/lib/api/backendProxy';
 import { readErrorMessage, readJsonResponse } from '@/lib/api/parseResponse';
 import { proxyEntitySoftDelete } from '@/lib/api/softDeleteProxy';
-import { normalizeUser } from '@/lib/utils/normalizeUser';
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -60,12 +59,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const data = await readJsonResponse(response);
-    const rawUser =
-      data && typeof data === 'object' && 'data' in data
-        ? (data as { data: Record<string, unknown> }).data
-        : data;
-
-    return NextResponse.json(normalizeUser(rawUser), { status: 200 });
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.error('[User Item API PUT] Error:', error);
     return NextResponse.json(

@@ -3,7 +3,7 @@
  * Handles all menu-related API calls
  */
 
-import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { apiClient, API_ENDPOINTS, buildListQueryString } from '@/lib/api';
 import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
@@ -33,31 +33,8 @@ export const menuService = {
    * Get list of menus with pagination and sorting
    */
   async getMenus(params?: MenuListParams) {
-    const queryParams = new URLSearchParams();
+    const endpoint = `${API_ENDPOINTS.MENUS.LIST}${buildListQueryString(params)}`;
 
-    if (params?.page) {
-      queryParams.append('page', params.page.toString());
-    }
-    if (params?.limit) {
-      queryParams.append('limit', params.limit.toString());
-    }
-    if (params?.sortBy) {
-      queryParams.append('sortBy', params.sortBy);
-    }
-    if (params?.sortOrder) {
-      queryParams.append('sortOrder', params.sortOrder);
-    }
-    if (params?.search) {
-      queryParams.append('search', params.search);
-    }
-    if (params?.isActive !== undefined) {
-      queryParams.append('isActive', params.isActive.toString());
-    }
-
-    const endpoint = `${API_ENDPOINTS.MENUS.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-
-    // API client returns { success: true, data: MenuListResponse, error: null }
-    // So response.data is the MenuListResponse
     return apiClient.get<MenuListResponse>(endpoint, { auth: true });
   },
 

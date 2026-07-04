@@ -9,6 +9,7 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { getBackendApiKey } from './backendConfig';
+import { toSnakeCaseKeys } from './snakeCase';
 
 /** Resolve bearer token from httpOnly cookie or Authorization header. */
 export async function resolveRouteAuthToken(request: NextRequest): Promise<string | undefined> {
@@ -63,7 +64,7 @@ export async function backendFetch(
   return fetch(url, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined ? JSON.stringify(toSnakeCaseKeys(body)) : undefined,
     cache: 'no-store',
   });
 }

@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Button, Checkbox, Select, ExportButton } from '@/components/ui';
 import type { Menu, Role } from '@/types/api';
-import { menuService, permissionService, roleService } from '@/services';
-import { apiClient } from '@/lib/api';
+import { menuService, permissionService, roleService, unwrapRbacPermissionsPayload } from '@/services';
+import type { SaveRbacPermissionsRequest, RbacPermissionEntry } from '@/types/api/permission';
 
 interface Permission {
   view: boolean;
@@ -18,41 +18,6 @@ interface Permission {
 
 interface RolePermissions {
   [menuId: number]: Permission;
-}
-
-interface PermissionPayload {
-  menuId: number;
-  view: number; // 1 for true, 0 for false
-  add: number; // 1 for true, 0 for false
-  edit: number; // 1 for true, 0 for false
-  delete: number; // 1 for true, 0 for false
-  export: number; // 1 for true, 0 for false
-  status: number; // 1 for true, 0 for false
-  approval: number; // 1 for true, 0 for false
-}
-
-interface SavePermissionsRequest {
-  roleId: number;
-  permissions: PermissionPayload[];
-}
-
-// API response type - permissions come as numbers (1/0) from the API
-interface ApiPermissionResponse {
-  view: number; // 1 for true, 0 for false
-  add: number; // 1 for true, 0 for false
-  edit: number; // 1 for true, 0 for false
-  delete: number; // 1 for true, 0 for false
-  export: number; // 1 for true, 0 for false
-  status: number; // 1 for true, 0 for false
-  approval: number; // 1 for true, 0 for false
-}
-
-interface ApiPermissionsResponse {
-  roleId: number;
-  permissions: Array<{
-    menuId: number;
-    permissions: ApiPermissionResponse;
-  }>;
 }
 
 /**
@@ -104,7 +69,7 @@ const sanitizePermission = (perm: Permission | Partial<Permission>): Permission 
 const validatePermissionsPayload = (
   roleId: number | null,
   permissions: RolePermissions
-): { isValid: boolean; error?: string; payload?: SavePermissionsRequest } => {
+): { isValid: boolean; error?: string; payload?: SaveRbacPermissionsRequest } => {
   if (!roleId || roleId <= 0) {
     return { isValid: false, error: 'Invalid role ID' };
   }
@@ -113,7 +78,7 @@ const validatePermissionsPayload = (
     return { isValid: false, error: 'No permissions to save' };
   }
 
-  const permissionsPayload: PermissionPayload[] = [];
+  const permissionsPayload: RbacPermissionEntry[] = [];
 
   for (const [menuIdStr, perm] of Object.entries(permissions)) {
     const menuId = Number(menuIdStr);
@@ -130,8 +95,8 @@ const validatePermissionsPayload = (
     const sanitized = sanitizePermission(perm);
 
     // Convert booleans to numbers (1 for true, 0 for false) for API payload
-    const validated: PermissionPayload = {
-      menuId,
+    const validated: RbacPermissionEntry = {
+      menu_id: menuId,
       view: booleanToNumber(sanitized.view),
       add: booleanToNumber(sanitized.add),
       edit: booleanToNumber(sanitized.edit),
@@ -147,7 +112,7 @@ const validatePermissionsPayload = (
   return {
     isValid: true,
     payload: {
-      roleId,
+      role_id: roleId,
       permissions: permissionsPayload,
     },
   };
@@ -246,20 +211,10 @@ export default function RBACPermissionsPage() {
       setError(null);
 
       try {
-        const response = await apiClient.get<ApiPermissionsResponse>(
-          `/api/v1/permissions?roleId=${selectedRole}`,
-          { auth: true }
-        );
+        const response = await permissionService.getPermissions(selectedRole);
 
         if (response.success && response.data) {
-          console.log('[RBAC Permissions] Full API Response:', JSON.stringify(response, null, 2));
-          console.log('[RBAC Permissions] response.data:', JSON.stringify(response.data, null, 2));
-          
-          // Handle both response structures:
-          // 1. Direct: response.data = { roleId, permissions }
-          // 2. Wrapped: response.data = { success, data: { roleId, permissions } }
-          const permissionsData = (response.data as any).data || response.data;
-          console.log('[RBAC Permissions] Extracted permissionsData:', JSON.stringify(permissionsData, null, 2));
+          const permissionsData = unwrapRbacPermissionsPayload(response.data);
           
           const rolePermissions: RolePermissions = {};
           
@@ -276,45 +231,26 @@ export default function RBACPermissionsPage() {
             };
           });
 
-          // Map API response permissions to menu IDs
-          // Note: API returns numeric values (1 = checked, 0 = unchecked) which are converted to booleans
-          if (permissionsData && permissionsData.permissions && Array.isArray(permissionsData.permissions)) {
-            console.log('[RBAC Permissions] Processing permissions array:', permissionsData.permissions.length, 'items');
-            
-            permissionsData.permissions.forEach((item: any) => {
-              console.log('[RBAC Permissions] Processing menuId:', item.menuId, 'permissions:', JSON.stringify(item.permissions));
-              
-              if (item.menuId && item.permissions) {
-                // Explicitly convert numeric permissions (1/0) to booleans for checkbox states
-                const apiPerms = item.permissions;
-                const convertedPerms: Permission = {
-                  view: Number(apiPerms.view) === 1,
-                  add: Number(apiPerms.add) === 1,
-                  edit: Number(apiPerms.edit) === 1,
-                  delete: Number(apiPerms.delete) === 1,
-                  export: Number(apiPerms.export) === 1,
-                  status: Number(apiPerms.status) === 1,
-                  approval: Number(apiPerms.approval) === 1,
-                };
-                
-                console.log('[RBAC Permissions] Converted permissions for menuId', item.menuId, ':', convertedPerms);
-                
-                // Set permissions for this menuId (even if not in menus list, in case menuId exists)
-                rolePermissions[item.menuId] = convertedPerms;
-              }
+          if (permissionsData?.permissions) {
+            permissionsData.permissions.forEach((item) => {
+              const apiPerms = item.permissions;
+              rolePermissions[item.menu_id] = {
+                view: Number(apiPerms.view) === 1,
+                add: Number(apiPerms.add) === 1,
+                edit: Number(apiPerms.edit) === 1,
+                delete: Number(apiPerms.delete) === 1,
+                export: Number(apiPerms.export) === 1,
+                status: Number(apiPerms.status) === 1,
+                approval: Number(apiPerms.approval) === 1,
+              };
             });
-          } else {
-            console.warn('[RBAC Permissions] No permissions array found. permissionsData:', permissionsData);
           }
-
-          console.log('[RBAC Permissions] Final rolePermissions:', JSON.stringify(rolePermissions, null, 2));
           
           setPermissions(rolePermissions);
           setOriginalPermissions(JSON.parse(JSON.stringify(rolePermissions)));
           setHasChanges(false);
           setSaveSuccess(false);
         } else {
-          console.error('[RBAC Permissions] Failed to fetch permissions:', response.error);
           setError(response.error?.message || 'Failed to fetch permissions');
         }
       } catch (err) {
@@ -429,8 +365,6 @@ export default function RBACPermissionsPage() {
         return;
       }
 
-      // Log the payload for debugging (remove in production if needed)
-      console.log('Saving permissions payload:', JSON.stringify(validation.payload, null, 2));
 
       // Verify all values are numbers (0 or 1)
       const hasInvalidValues = validation.payload.permissions.some((perm) => {
@@ -451,47 +385,30 @@ export default function RBACPermissionsPage() {
         return;
       }
 
-      const response = await apiClient.put<{
-        success: boolean;
-        message: string;
-        data?: ApiPermissionsResponse;
-      }>(
-        '/api/v1/permissions',
-        validation.payload,
-        { auth: true }
-      );
+      const response = await permissionService.savePermissions(validation.payload);
 
       if (response.success) {
-        // If the response contains updated permissions data, use it to update the state
-        // This ensures the UI reflects exactly what was saved (handles numeric 1/0 values)
-        // Handle both response structures: direct or wrapped in data field
-        const responseData = response.data as any;
-        const permissionsData = responseData?.data || responseData;
+        const permissionsData = unwrapRbacPermissionsPayload(response.data);
         
-        if (permissionsData && permissionsData.permissions && Array.isArray(permissionsData.permissions)) {
+        if (permissionsData?.permissions) {
           const updatedPermissions: RolePermissions = { ...permissions };
           
-          // Update permissions from the API response (convert numeric 1/0 to booleans)
-          permissionsData.permissions.forEach((item: any) => {
-            if (item.menuId && item.permissions) {
-              const apiPerms = item.permissions;
-              // Explicitly convert numeric permissions (1/0) to booleans
-              updatedPermissions[item.menuId] = {
-                view: Number(apiPerms.view) === 1,
-                add: Number(apiPerms.add) === 1,
-                edit: Number(apiPerms.edit) === 1,
-                delete: Number(apiPerms.delete) === 1,
-                export: Number(apiPerms.export) === 1,
-                status: Number(apiPerms.status) === 1,
-                approval: Number(apiPerms.approval) === 1,
-              };
-            }
+          permissionsData.permissions.forEach((item) => {
+            const apiPerms = item.permissions;
+            updatedPermissions[item.menu_id] = {
+              view: Number(apiPerms.view) === 1,
+              add: Number(apiPerms.add) === 1,
+              edit: Number(apiPerms.edit) === 1,
+              delete: Number(apiPerms.delete) === 1,
+              export: Number(apiPerms.export) === 1,
+              status: Number(apiPerms.status) === 1,
+              approval: Number(apiPerms.approval) === 1,
+            };
           });
           
           setPermissions(updatedPermissions);
           setOriginalPermissions(JSON.parse(JSON.stringify(updatedPermissions)));
         } else {
-          // Fallback: use current permissions state
           setOriginalPermissions(JSON.parse(JSON.stringify(permissions)));
         }
         

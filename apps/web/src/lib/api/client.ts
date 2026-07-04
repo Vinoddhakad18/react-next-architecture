@@ -9,6 +9,7 @@ import { readJsonResponse } from './parseResponse';
 import { tokenManager } from '@/lib/auth/TokenManager';
 import { extractAuthTokensFromApiResponse } from '@/lib/auth/normalizeAuthTokens';
 import { getCsrfTokenFromCookie } from '@/lib/utils/csrf';
+import { toSnakeCaseKeys } from './snakeCase';
 import type { ApiResponse, ApiError } from '@/types/api';
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -128,7 +129,7 @@ class ApiClient {
           ...(auth ? getAuthHeader() : {}),
           ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
         },
-        body: body ? JSON.stringify(body) : undefined,
+        body: body ? JSON.stringify(toSnakeCaseKeys(body)) : undefined,
         signal: controller.signal,
       });
 

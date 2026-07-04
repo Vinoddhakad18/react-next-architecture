@@ -20,12 +20,19 @@ function normalizePagination(
   pagination: Record<string, unknown> | undefined,
   fallbackTotal: number
 ): UserListMeta {
+  const perPage = Number(pagination?.per_page ?? pagination?.limit ?? 10);
+  const totalRecords = Number(
+    pagination?.total_records ?? pagination?.total ?? fallbackTotal
+  );
+
   return {
-    total: Number(pagination?.total ?? fallbackTotal),
+    total: totalRecords,
     page: Number(pagination?.page ?? 1),
-    limit: Number(pagination?.limit ?? 10),
+    limit: perPage,
     totalPages: Number(
-      pagination?.totalPages ?? pagination?.total_pages ?? Math.max(1, Math.ceil(fallbackTotal / Number(pagination?.limit ?? 10)))
+      pagination?.total_pages ??
+        pagination?.totalPages ??
+        Math.max(1, Math.ceil(totalRecords / perPage))
     ),
   };
 }

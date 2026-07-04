@@ -8,17 +8,9 @@ import { cookies } from 'next/headers';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
+import { toSnakeCaseKeys } from '@/lib/api/snakeCase';
+import { readListQueryParams, toBackendListQueryString } from '@/lib/api/listQueryParams';
 import { extractPagePermissions } from '@/lib/api/permissions';
-import { normalizeBranch } from '@/services/branch.service';
-
-function normalizePagination(pagination: any, page: number, limit: number, total: number) {
-  return {
-    total: pagination?.total ?? total,
-    page: pagination?.page ?? page,
-    limit: pagination?.limit ?? limit,
-    totalPages: pagination?.totalPages ?? pagination?.total_pages ?? Math.ceil(total / limit),
-  };
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,25 +29,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '10', 10);
-    const sortBy = searchParams.get('sortBy') || 'branch_name';
-    const sortOrder = searchParams.get('sortOrder') || 'ASC';
-    const search = searchParams.get('search') || '';
-
-    const queryParams = new URLSearchParams({
-      page: String(page),
-      limit: String(limit),
-      sortBy,
-      sortOrder,
-    });
-
-    if (search) {
-      queryParams.append('search', search);
-    }
-
-    queryParams.append('_t', Date.now().toString());
-    const backendUrl = `${BACKEND_API_URL}/api/v1/branches?${queryParams.toString()}`;
+    const listQuery = readListQueryParams(searchParams, { sort_by: 'branch_name' });
+    const queryParams = toBackendListQueryString(listQuery, { includeCacheBuster: true });
+    const backendUrl = `${BACKEND_API_URL}/api/v1/branches?${queryParams}`;
 
     let response: Response;
     try {
@@ -103,47 +79,9 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    let branchData: { data: any[]; meta: any };
-
-    if (data.success && data.data) {
-      const backendData = data.data;
-      const branchItems = backendData.data || backendData.branches || [];
-      const normalizedBranches = (Array.isArray(branchItems) ? branchItems : []).map((branch: Record<string, unknown>) =>
-        normalizeBranch(branch)
-      );
-      const pagination = normalizePagination(backendData.pagination || backendData.meta, page, limit, normalizedBranches.length);
-
-      branchData = {
-        data: normalizedBranches,
-        meta: pagination,
-      };
-    } else if (data.data && Array.isArray(data.data) && data.meta) {
-      branchData = {
-        data: data.data.map((branch: Record<string, unknown>) => normalizeBranch(branch)),
-        meta: normalizePagination(data.meta, page, limit, data.data.length),
-      };
-    } else if (Array.isArray(data)) {
-      branchData = {
-        data: data.map((branch: Record<string, unknown>) => normalizeBranch(branch)),
-        meta: normalizePagination({}, page, limit, data.length),
-      };
-    } else {
-      let foundArray: any[] = [];
-      if (data.data && Array.isArray(data.data)) {
-        foundArray = data.data;
-      } else if (Array.isArray(data)) {
-        foundArray = data;
-      }
-
-      branchData = {
-        data: foundArray.map((branch: Record<string, unknown>) => normalizeBranch(branch)),
-        meta: normalizePagination({}, page, limit, foundArray.length),
-      };
-    }
-
     return NextResponse.json(
       {
-        ...branchData,
+        ...data,
         permissions: extractPagePermissions(data),
       },
       { status: 200 }
@@ -195,7 +133,7 @@ export async function POST(request: NextRequest) {
           'X-API-Key': getBackendApiKey(),
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(toSnakeCaseKeys(body)),
         cache: 'no-store',
       });
     } catch (fetchError) {

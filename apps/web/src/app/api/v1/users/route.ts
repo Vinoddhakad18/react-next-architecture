@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
+import { toSnakeCaseKeys } from '@/lib/api/snakeCase';
+import { readListQueryParams, toBackendListQueryString } from '@/lib/api/listQueryParams';
 import { parseUserListResponse } from '@/lib/users/parseUserListResponse';
-import { normalizeUser } from '@/lib/utils/normalizeUser';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
 export async function GET(request: NextRequest) {
@@ -23,25 +24,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '10', 10);
-    const sortBy = searchParams.get('sortBy') || 'name';
-    const sortOrder = searchParams.get('sortOrder') || 'ASC';
-    const search = searchParams.get('search') || '';
-
-    const queryParams = new URLSearchParams({
-      page: String(page),
-      limit: String(limit),
-      sortBy,
-      sortOrder,
-    });
-
-    if (search) {
-      queryParams.append('search', search);
-    }
-
-    queryParams.append('_t', Date.now().toString());
-    const backendUrl = `${BACKEND_API_URL}/api/v1/users?${queryParams.toString()}`;
+    const listQuery = readListQueryParams(searchParams, { sort_by: 'name' });
+    const queryParams = toBackendListQueryString(listQuery, { includeCacheBuster: true });
+    const backendUrl = `${BACKEND_API_URL}/api/v1/users?${queryParams}`;
 
     let response: Response;
     try {
@@ -139,7 +124,7 @@ export async function POST(request: NextRequest) {
           'X-API-Key': getBackendApiKey(),
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(toSnakeCaseKeys(body)),
         cache: 'no-store',
       });
     } catch (fetchError) {
@@ -165,11 +150,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const userRecord = data?.data ?? data;
-    return NextResponse.json(
-      normalizeUser(typeof userRecord === 'object' && userRecord ? userRecord : {}),
-      { status: 201 }
-    );
+    return NextResponse.json(data, { status: 201 });
   } catch (error) {
     console.error('[Users API POST] Error:', error);
     return NextResponse.json(

@@ -3,7 +3,7 @@
  * Handles user listing, updating and soft delete operations.
  */
 
-import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { apiClient, API_ENDPOINTS, buildListQueryString } from '@/lib/api';
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { parseUserListResponse } from '@/lib/users/parseUserListResponse';
 import { normalizeUser } from '@/lib/utils/normalizeUser';
@@ -22,25 +22,7 @@ export const userService = {
   },
 
   async getUsers(params?: UserListParams): Promise<ApiResponse<UserListResponse>> {
-    const queryParams = new URLSearchParams();
-
-    if (params?.page) {
-      queryParams.append('page', params.page.toString());
-    }
-    if (params?.limit) {
-      queryParams.append('limit', params.limit.toString());
-    }
-    if (params?.sortBy) {
-      queryParams.append('sortBy', params.sortBy);
-    }
-    if (params?.sortOrder) {
-      queryParams.append('sortOrder', params.sortOrder);
-    }
-    if (params?.search) {
-      queryParams.append('search', params.search);
-    }
-
-    const endpoint = `${API_ENDPOINTS.USERS.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `${API_ENDPOINTS.USERS.LIST}${buildListQueryString(params)}`;
     const response = await apiClient.get<unknown>(endpoint, { auth: true });
 
     if (!response.success || response.data == null) {
