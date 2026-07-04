@@ -8,11 +8,7 @@ import {
   encryptedGet,
   encryptedPut,
 } from '@/lib/api/encryptedClientApi';
-import {
-  PERMISSION_REQUEST_DATA_PAYLOAD,
-  buildPermissionExportEncryptedQueryClient,
-  buildPermissionListQueryString,
-} from '@/lib/api/permissionEncryptedQuery';
+import { buildPermissionExportEncryptedQueryClient, buildPermissionListQueryPayload } from '@/lib/api/permissionEncryptedQuery';
 import { downloadEntityExport } from '@/lib/api/entityActions';
 import type { RbacPermissionsResponse, SaveRbacPermissionsRequest } from '@/types/api/permission';
 
@@ -76,8 +72,8 @@ export function unwrapRbacPermissionsPayload(raw: unknown): RbacPermissionsRespo
 export const permissionService = {
   async getPermissions(roleId: number) {
     const response = await encryptedGet<RbacPermissionsResponse>(
-      `${API_ENDPOINTS.PERMISSIONS.LIST}${buildPermissionListQueryString(roleId)}`,
-      { queryParams: PERMISSION_REQUEST_DATA_PAYLOAD }
+      API_ENDPOINTS.PERMISSIONS.LIST,
+      { queryParams: buildPermissionListQueryPayload(roleId) }
     );
 
     if (response.success && response.data) {

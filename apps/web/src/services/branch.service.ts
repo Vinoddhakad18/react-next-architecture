@@ -3,7 +3,9 @@
  * Handles branch-related API calls
  */
 
-import { apiClient, API_ENDPOINTS, buildListQueryString } from '@/lib/api';
+import { apiClient, API_ENDPOINTS, listQueryInputToQueryString } from '@/lib/api';
+import { encryptedGet } from '@/lib/api/encryptedClientApi';
+import { buildExportQueryPayload } from '@/lib/api/listQueryParams';
 import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
@@ -15,8 +17,11 @@ import { extractBranchTreePayload } from '@/lib/utils/normalizeBranchTree';
 
 export const branchService = {
   async getBranches(params?: BranchListParams) {
-    const endpoint = `${API_ENDPOINTS.BRANCHES.LIST}${buildListQueryString(params)}`;
-    const response = await apiClient.get<{ success: boolean; message: string; data: { data: any[]; pagination?: any; meta?: any }; permissions?: PagePermissions }>(endpoint, { auth: true });
+    const queryString = listQueryInputToQueryString(params);
+    const response = await encryptedGet<{ success: boolean; message: string; data: { data: any[]; pagination?: any; meta?: any }; permissions?: PagePermissions }>(
+      API_ENDPOINTS.BRANCHES.LIST,
+      { queryParams: queryString || undefined }
+    );
 
     if (!response.success || !response.data) {
       return response as unknown as ApiResponse<BranchListResponse>;
@@ -58,13 +63,9 @@ export const branchService = {
   },
 
   async getBranchTree(activeOnly = true) {
-    const queryParams = new URLSearchParams();
-    if (activeOnly) {
-      queryParams.append('active_only', 'true');
-    }
-
-    const endpoint = `${API_ENDPOINTS.BRANCHES.TREE}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await apiClient.get<unknown>(endpoint, { auth: true });
+    const response = await encryptedGet<unknown>(API_ENDPOINTS.BRANCHES.TREE, {
+      queryParams: activeOnly ? 'active_only=true' : undefined,
+    });
 
     if (!response.success || response.data == null) {
       return response as ApiResponse<BranchTreeNode[]>;
@@ -117,17 +118,12 @@ export const branchService = {
   },
 
   async exportBranches(params?: Pick<BranchListParams, 'sortBy' | 'sortOrder' | 'search'>) {
-    const queryParams: Record<string, string> = {
-      sort_by: params?.sortBy ?? 'branch_name',
-      sort_order: params?.sortOrder ?? 'ASC',
-    };
-
-    if (params?.search) {
-      queryParams.search = params.search;
-    }
-
     return downloadEntityExport(API_ENDPOINTS.BRANCHES.EXPORT, 'branches-export.xlsx', {
-      queryParams,
+      queryParams: buildExportQueryPayload({
+        sortBy: params?.sortBy ?? 'branch_name',
+        sortOrder: params?.sortOrder,
+        search: params?.search,
+      }),
       accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
   },

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BACKEND_API_URL } from '@/lib/api/backendConfig';
 import { backendBinaryFetch, resolveRouteAuthToken } from '@/lib/api/backendProxy';
+import { readEncryptedExportQueryFromRequest } from '@/lib/api/encryptedListQuery';
 import { readErrorMessage } from '@/lib/api/parseResponse';
 
 const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -46,22 +47,22 @@ export async function proxyEntityExcelExport(
     }
 
     const { searchParams } = new URL(request.url);
-    const sortBy = searchParams.get('sort_by') ?? searchParams.get('sortBy') ?? defaultSortBy;
-    const sortOrder = searchParams.get('sort_order') ?? searchParams.get('sortOrder') ?? defaultSortOrder;
-
-    const queryParams = new URLSearchParams({
-      sort_by: sortBy,
-      sort_order: sortOrder,
+    const exportQuery = readEncryptedExportQueryFromRequest(searchParams, {
+      sort_by: defaultSortBy,
+      sort_order: defaultSortOrder,
     });
 
-    const search = searchParams.get('search');
-    if (search) {
-      queryParams.append('search', search);
+    const queryParams = new URLSearchParams({
+      sort_by: exportQuery.sort_by,
+      sort_order: exportQuery.sort_order,
+    });
+
+    if (exportQuery.search) {
+      queryParams.append('search', exportQuery.search);
     }
 
-    const isActive = searchParams.get('is_active') ?? searchParams.get('isActive');
-    if (isActive !== null && isActive !== '') {
-      queryParams.append('is_active', isActive);
+    if (exportQuery.is_active) {
+      queryParams.append('is_active', exportQuery.is_active);
     }
 
     if (extraQueryParams) {

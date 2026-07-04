@@ -11,6 +11,58 @@ export interface ListQueryInput {
   isActive?: boolean;
 }
 
+/** Serialize list query input as a query-string (for encrypted request_data). */
+export function listQueryInputToQueryString(params?: ListQueryInput): string {
+  const query = new URLSearchParams();
+
+  if (params?.page !== undefined) {
+    query.set('page', String(params.page));
+  }
+  if (params?.limit !== undefined) {
+    query.set('per_page', String(params.limit));
+  }
+  if (params?.sortBy) {
+    query.set('sort_by', params.sortBy);
+  }
+  if (params?.sortOrder) {
+    query.set('sort_order', params.sortOrder);
+  }
+  if (params?.search) {
+    query.set('search', params.search);
+  }
+  if (params?.isActive !== undefined) {
+    query.set('is_active', String(params.isActive));
+  }
+
+  return query.toString();
+}
+
+/** Build export filter params as query-string fields (for encrypted request_data). */
+export function buildExportQueryPayload(params: {
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  search?: string;
+  isActive?: boolean;
+  roleId?: number;
+}): Record<string, string> {
+  const payload: Record<string, string> = {
+    sort_by: params.sortBy ?? 'id',
+    sort_order: params.sortOrder ?? 'ASC',
+  };
+
+  if (params.search) {
+    payload.search = params.search;
+  }
+  if (params.isActive !== undefined) {
+    payload.is_active = String(params.isActive);
+  }
+  if (params.roleId !== undefined) {
+    payload.role_id = String(params.roleId);
+  }
+
+  return payload;
+}
+
 /** Build a snake_case query string for list endpoints. */
 export function buildListQueryString(params?: ListQueryInput): string {
   if (!params) {

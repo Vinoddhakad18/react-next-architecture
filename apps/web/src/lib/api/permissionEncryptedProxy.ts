@@ -15,8 +15,8 @@ import {
   unauthorizedJsonResponse,
 } from '@/lib/api/encryptedRouteProxy';
 import {
-  PERMISSION_REQUEST_DATA_PAYLOAD,
-  buildPermissionExportEncryptedQuery,
+  buildPermissionBackendExportUrl,
+  buildPermissionBackendGetUrl,
   readPermissionExportQueryFromRequest,
   readPermissionQueryFromRequest,
 } from '@/lib/api/permissionEncryptedQuery';
@@ -44,14 +44,16 @@ export async function proxyPermissionGet(request: NextRequest) {
     );
   }
 
-  const backendUrl = `${BACKEND_API_URL}/api/v1/permissions?role_id=${roleId}`;
+  const backendUrl = buildPermissionBackendGetUrl(
+    `${BACKEND_API_URL}/api/v1/permissions`,
+    roleId
+  );
 
   let result;
   try {
     result = await proxyEncryptedBackendJson(backendUrl, {
       method: 'GET',
       authToken,
-      queryParams: PERMISSION_REQUEST_DATA_PAYLOAD,
       noCache: true,
     });
   } catch (fetchError) {
@@ -118,11 +120,14 @@ export async function proxyPermissionExcelExport(request: NextRequest) {
     );
   }
 
-  const backendUrl = `${BACKEND_API_URL}/api/v1/permissions/export/excel${buildPermissionExportEncryptedQuery({
-    roleId: Number(queryPayload.role_id),
-    sortBy: queryPayload.sort_by,
-    sortOrder: queryPayload.sort_order as 'ASC' | 'DESC',
-  })}`;
+  const backendUrl = buildPermissionBackendExportUrl(
+    `${BACKEND_API_URL}/api/v1/permissions/export/excel`,
+    {
+      role_id: queryPayload.role_id,
+      sort_by: queryPayload.sort_by,
+      sort_order: queryPayload.sort_order,
+    }
+  );
 
   let response: Response;
   try {

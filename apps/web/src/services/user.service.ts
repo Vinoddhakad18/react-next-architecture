@@ -3,7 +3,9 @@
  * Handles user listing, updating and soft delete operations.
  */
 
-import { apiClient, API_ENDPOINTS, buildListQueryString } from '@/lib/api';
+import { apiClient, API_ENDPOINTS, listQueryInputToQueryString } from '@/lib/api';
+import { encryptedGet } from '@/lib/api/encryptedClientApi';
+import { buildExportQueryPayload } from '@/lib/api/listQueryParams';
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { parseUserListResponse } from '@/lib/users/parseUserListResponse';
 import { normalizeUser } from '@/lib/utils/normalizeUser';
@@ -22,8 +24,10 @@ export const userService = {
   },
 
   async getUsers(params?: UserListParams): Promise<ApiResponse<UserListResponse>> {
-    const endpoint = `${API_ENDPOINTS.USERS.LIST}${buildListQueryString(params)}`;
-    const response = await apiClient.get<unknown>(endpoint, { auth: true });
+    const queryString = listQueryInputToQueryString(params);
+    const response = await encryptedGet<unknown>(API_ENDPOINTS.USERS.LIST, {
+      queryParams: queryString || undefined,
+    });
 
     if (!response.success || response.data == null) {
       return response as ApiResponse<UserListResponse>;
@@ -80,17 +84,12 @@ export const userService = {
   },
 
   async exportUsers(params?: Pick<UserListParams, 'sortBy' | 'sortOrder' | 'search'>) {
-    const queryParams: Record<string, string> = {
-      sort_by: params?.sortBy ?? 'name',
-      sort_order: params?.sortOrder ?? 'ASC',
-    };
-
-    if (params?.search) {
-      queryParams.search = params.search;
-    }
-
     return downloadEntityExport(API_ENDPOINTS.USERS.EXPORT, 'users-export.xlsx', {
-      queryParams,
+      queryParams: buildExportQueryPayload({
+        sortBy: params?.sortBy ?? 'name',
+        sortOrder: params?.sortOrder,
+        search: params?.search,
+      }),
       accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
   },

@@ -2,6 +2,11 @@
  * Pure custom encrypt/decrypt helpers (no server env dependencies).
  */
 
+import {
+  parseEncryptedQueryPayload,
+  serializeEncryptedQueryPayload,
+} from './encryptedQueryPayload';
+
 export const CUSTOM_REQUEST_DATA_FIELD = 'request_data';
 export const CUSTOM_RESPONSE_DATA_FIELD = 'response_data';
 
@@ -112,7 +117,8 @@ export function buildEncryptedRequestBody(chars: string, payload: unknown): Reco
 }
 
 export function buildEncryptedQueryString(chars: string, payload: unknown): string {
-  const encrypted = encryptCustomPayload(chars, payload);
+  const serialized = serializeEncryptedQueryPayload(payload);
+  const encrypted = encryptCustomPayload(chars, serialized);
   return `?${CUSTOM_REQUEST_DATA_FIELD}=${encodeURIComponent(encrypted)}`;
 }
 
@@ -121,7 +127,8 @@ export function appendEncryptedQueryToUrl(
   url: string,
   payload: unknown
 ): string {
-  const encrypted = encryptCustomPayload(chars, payload);
+  const serialized = serializeEncryptedQueryPayload(payload);
+  const encrypted = encryptCustomPayload(chars, serialized);
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}${CUSTOM_REQUEST_DATA_FIELD}=${encodeURIComponent(encrypted)}`;
 }
@@ -135,7 +142,13 @@ export function decryptQueryPayload(
     return null;
   }
 
-  return decryptCustomPayload(chars, encrypted.trim());
+  const decrypted = decryptCustomPayload(chars, encrypted.trim());
+  const parsed = parseEncryptedQueryPayload(decrypted);
+  if (parsed !== null) {
+    return parsed;
+  }
+
+  return decrypted;
 }
 
 export function isEncryptedQueryParams(

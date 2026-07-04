@@ -2,6 +2,7 @@
  * Shared entity workflow API helpers (approve, reject, status toggle, export).
  */
 
+import { appendEncryptedQueryToUrl } from './customEncryptClient';
 import { apiClient } from './client';
 import { apiConfig, getAuthHeader, getApiKeyHeader } from './config';
 import { isJsonContentType, readErrorMessage } from './parseResponse';
@@ -33,7 +34,7 @@ export async function toggleEntityStatus(endpoint: string, active: boolean): Pro
 }
 
 export interface DownloadExportOptions {
-  queryParams?: Record<string, string>;
+  queryParams?: Record<string, string> | string;
   accept?: string;
 }
 
@@ -46,14 +47,17 @@ export async function downloadEntityExport(
   options?: DownloadExportOptions
 ): Promise<ActionResult> {
   try {
-    const query = options?.queryParams
-      ? `?${new URLSearchParams(options.queryParams).toString()}`
-      : '';
+    const requestPath = options?.queryParams
+      ? appendEncryptedQueryToUrl(apiConfig.baseUrl + endpoint, options.queryParams).slice(
+          apiConfig.baseUrl.length
+        )
+      : endpoint;
+
     const accept =
       options?.accept ??
       'application/octet-stream, text/csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-    const response = await fetch(`${apiConfig.baseUrl}${endpoint}${query}`, {
+    const response = await fetch(`${apiConfig.baseUrl}${requestPath}`, {
       method: 'GET',
       credentials: 'include',
       headers: {

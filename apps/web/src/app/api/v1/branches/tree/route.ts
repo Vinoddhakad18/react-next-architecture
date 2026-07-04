@@ -8,6 +8,7 @@ import { cookies } from 'next/headers';
 
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
 import { extractBranchTreePayload } from '@/lib/utils/normalizeBranchTree';
+import { readEncryptedActiveOnlyFromRequest } from '@/lib/api/encryptedListQuery';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,8 +29,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const queryParams = new URLSearchParams();
 
-    if (searchParams.has('active_only')) {
-      queryParams.append('active_only', searchParams.get('active_only') || 'true');
+    if (readEncryptedActiveOnlyFromRequest(searchParams)) {
+      queryParams.append('active_only', 'true');
     }
 
     queryParams.append('_t', Date.now().toString());

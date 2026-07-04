@@ -9,7 +9,8 @@ import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/va
 
 import { BACKEND_API_URL } from '@/lib/api/backendConfig';
 import { backendFetch } from '@/lib/api/backendProxy';
-import { readListQueryParams, toBackendListQueryString } from '@/lib/api/listQueryParams';
+import { readEncryptedListQueryFromRequest } from '@/lib/api/encryptedListQuery';
+import { toBackendListQueryString } from '@/lib/api/listQueryParams';
 import { extractPagePermissions } from '@/lib/api/permissions';
 
 /**
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const listQuery = readListQueryParams(searchParams, { sort_by: 'id' });
+    const listQuery = readEncryptedListQueryFromRequest(searchParams, { sort_by: 'id' });
     const queryParams = toBackendListQueryString(listQuery, { includeCacheBuster: true });
     const backendUrl = `${BACKEND_API_URL}/api/v1/roles?${queryParams}`;
 

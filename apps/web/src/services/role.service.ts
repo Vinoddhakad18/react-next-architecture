@@ -3,7 +3,9 @@
  * Handles all role-related API calls
  */
 
-import { apiClient, API_ENDPOINTS, buildListQueryString } from '@/lib/api';
+import { apiClient, API_ENDPOINTS, listQueryInputToQueryString } from '@/lib/api';
+import { encryptedGet } from '@/lib/api/encryptedClientApi';
+import { buildExportQueryPayload } from '@/lib/api/listQueryParams';
 import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
 import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
 import { resolveApprovalStatus } from '@/lib/approval';
@@ -29,16 +31,19 @@ export const roleService = {
    * Get list of roles with pagination and sorting
    */
   async getRoles(params?: RoleListParams) {
-    const endpoint = `${API_ENDPOINTS.ROLES.LIST}${buildListQueryString(params)}`;
-
-    return apiClient.get<RoleListResponse>(endpoint, { auth: true });
+    const queryString = listQueryInputToQueryString(params);
+    return encryptedGet<RoleListResponse>(API_ENDPOINTS.ROLES.LIST, {
+      queryParams: queryString || undefined,
+    });
   },
 
   /**
    * Get list of active roles
    */
   async getActiveRoles() {
-    return apiClient.get<{ data: Role[] } | Role[]>(API_ENDPOINTS.ROLES.ACTIVE_LIST, { auth: true });
+    return encryptedGet<{ data: Role[] } | Role[]>(API_ENDPOINTS.ROLES.ACTIVE_LIST, {
+      queryParams: {},
+    });
   },
 
   /**
@@ -98,21 +103,13 @@ export const roleService = {
   },
 
   async exportRoles(params?: Pick<RoleListParams, 'sortBy' | 'sortOrder' | 'search' | 'isActive'>) {
-    const queryParams: Record<string, string> = {
-      sort_by: params?.sortBy ?? 'id',
-      sort_order: params?.sortOrder ?? 'ASC',
-    };
-
-    if (params?.search) {
-      queryParams.search = params.search;
-    }
-
-    if (params?.isActive !== undefined) {
-      queryParams.is_active = params.isActive.toString();
-    }
-
     return downloadEntityExport(API_ENDPOINTS.ROLES.EXPORT, 'roles-export.xlsx', {
-      queryParams,
+      queryParams: buildExportQueryPayload({
+        sortBy: params?.sortBy ?? 'id',
+        sortOrder: params?.sortOrder,
+        search: params?.search,
+        isActive: params?.isActive,
+      }),
       accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
   },

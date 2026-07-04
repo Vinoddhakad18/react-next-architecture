@@ -11,7 +11,7 @@ import {
   encryptedPost,
   encryptedPut,
 } from '@/lib/api/encryptedClientApi';
-import { buildMenuExportEncryptedQueryClient } from '@/lib/api/menuEncryptedQuery';
+import { buildMenuExportEncryptedQueryClient, buildMenuListQueryPayload } from '@/lib/api/menuEncryptedQuery';
 import { downloadEntityExport } from '@/lib/api/entityActions';
 import { extractPagePermissions } from '@/lib/api/permissions';
 import { normalizeMenu } from '@/lib/menus/normalizeMenu';
@@ -115,36 +115,11 @@ function extractTreeItems(payload: unknown): unknown[] {
   return [];
 }
 
-function buildMenuListQueryPayload(params?: MenuListParams): Record<string, string> {
-  const payload: Record<string, string> = {};
-
-  if (params?.page !== undefined) {
-    payload.page = String(params.page);
-  }
-  if (params?.limit !== undefined) {
-    payload.per_page = String(params.limit);
-  }
-  if (params?.sortBy) {
-    payload.sort_by = params.sortBy;
-  }
-  if (params?.sortOrder) {
-    payload.sort_order = params.sortOrder;
-  }
-  if (params?.search) {
-    payload.search = params.search;
-  }
-  if (params?.isActive !== undefined) {
-    payload.is_active = String(params.isActive);
-  }
-
-  return payload;
-}
-
 export const menuService = {
   async getMenus(params?: MenuListParams) {
     const response = await encryptedGet<MenuListResponse & { permissions?: PagePermissions }>(
       API_ENDPOINTS.MENUS.LIST,
-      { queryParams: buildMenuListQueryPayload(params) }
+      { queryParams: buildMenuListQueryPayload(params) || undefined }
     );
 
     if (response.success && response.data) {
@@ -188,7 +163,7 @@ export const menuService = {
     const response = await encryptedGet<{ success: boolean; message: string; data: Menu[] }>(
       API_ENDPOINTS.MENUS.TREE,
       {
-        queryParams: activeOnly ? { active_only: 'true' } : {},
+        queryParams: activeOnly ? 'active_only=true' : {},
       }
     );
 
