@@ -7,47 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 import { BACKEND_API_URL, getBackendApiKey } from '@/lib/api/backendConfig';
-
-function normalizeBranchNode(branch: any): any {
-  return {
-    id: branch.id,
-    branchName: branch.branch_name ?? branch.branchName ?? '',
-    branchCode: branch.branch_code ?? branch.branchCode ?? '',
-    address: branch.address ?? '',
-    parentId: branch.parentId ?? branch.parent_id ?? null,
-    status: branch.status ?? '',
-    children: Array.isArray(branch.children) ? normalizeBranchTree(branch.children) : [],
-  };
-}
-
-function normalizeBranchTree(tree: any): any[] {
-  if (!Array.isArray(tree)) {
-    return [];
-  }
-  return tree.map(normalizeBranchNode);
-}
-
-function extractTreePayload(payload: any): any[] {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  if (payload && typeof payload === 'object') {
-    if (Array.isArray(payload.data)) {
-      return payload.data;
-    }
-
-    if (payload.data && Array.isArray(payload.data.data)) {
-      return payload.data.data;
-    }
-
-    if (payload.success && payload.data) {
-      return extractTreePayload(payload.data);
-    }
-  }
-
-  return [];
-}
+import { extractBranchTreePayload } from '@/lib/utils/normalizeBranchTree';
 
 export async function GET(request: NextRequest) {
   try {
@@ -120,8 +80,7 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    const rawTree = extractTreePayload(data);
-    const branchTree = normalizeBranchTree(rawTree);
+    const branchTree = extractBranchTreePayload(data);
 
     return NextResponse.json(
       {

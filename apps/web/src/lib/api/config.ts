@@ -5,7 +5,9 @@
 
 import { tokenManager } from '@/lib/auth/TokenManager';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Empty string = same-origin BFF (/api/...). Only set NEXT_PUBLIC_API_URL when
+// intentionally calling the backend directly (not recommended).
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim() || '';
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
 export const apiConfig = {
   baseUrl: API_BASE_URL,

@@ -5,29 +5,47 @@
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
 import { tokenManager } from '@/lib/auth/TokenManager';
+import { extractAuthTokensFromApiResponse } from '@/lib/auth/normalizeAuthTokens';
 import type {
   LoginRequest,
-  LoginResponse,
   RegisterRequest,
   User,
-  RefreshTokenRequest,
-  RefreshTokenResponse,
 } from '@/types/api';
+
+function storeTokensFromResponse(responseData: unknown): boolean {
+  const tokens = extractAuthTokensFromApiResponse(responseData);
+  if (!tokens?.accessToken) {
+    return false;
+  }
+
+  tokenManager.setToken(tokens.accessToken);
+  if (tokens.refreshToken) {
+    tokenManager.setRefreshToken(tokens.refreshToken);
+  }
+  return true;
+}
 
 export const authService = {
   /**
    * Login with email and password
    */
   async login(credentials: LoginRequest) {
-    const response = await apiClient.post<{ success: boolean; message: string; data: LoginResponse }, LoginRequest>(
-      API_ENDPOINTS.AUTH.LOGIN,
-      credentials
-    );
+    const response = await apiClient.post<
+      { success: boolean; message: string; data: unknown },
+      LoginRequest
+    >(API_ENDPOINTS.AUTH.LOGIN, credentials);
 
-    if (response.success && response.data?.data?.accessToken) {
-      tokenManager.setToken(response.data.data.accessToken);
-      if (response.data.data.refreshToken) {
-        tokenManager.setRefreshToken(response.data.data.refreshToken);
+    if (response.success) {
+      const stored = storeTokensFromResponse(response.data);
+      if (!stored) {
+        return {
+          success: false as const,
+          data: response.data,
+          error: {
+            message: 'Login response did not include an access token',
+            status: 502,
+          },
+        };
       }
     }
 
@@ -38,7 +56,7 @@ export const authService = {
    * Register a new user
    */
   async register(data: RegisterRequest) {
-    return apiClient.post<LoginResponse, RegisterRequest>(
+    return apiClient.post<unknown, RegisterRequest>(
       API_ENDPOINTS.AUTH.REGISTER,
       data
     );
@@ -74,16 +92,13 @@ export const authService = {
       return { data: null, error: { message: 'No refresh token', status: 401 }, success: false };
     }
 
-    const response = await apiClient.post<{ success: boolean; message: string; data: RefreshTokenResponse }, RefreshTokenRequest>(
-      API_ENDPOINTS.AUTH.REFRESH,
-      { refreshToken }
-    );
+    const response = await apiClient.post<
+      { success: boolean; message: string; data: unknown },
+      { refresh_token: string }
+    >(API_ENDPOINTS.AUTH.REFRESH, { refresh_token: refreshToken });
 
-    if (response.success && response.data?.data?.accessToken) {
-      tokenManager.setToken(response.data.data.accessToken);
-      if (response.data.data.refreshToken) {
-        tokenManager.setRefreshToken(response.data.data.refreshToken);
-      }
+    if (response.success) {
+      storeTokensFromResponse(response.data);
     }
 
     return response;

@@ -1,23 +1,19 @@
+/**
+ * Shared BFF proxy for entity soft delete (DELETE .../{id}).
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 import { BACKEND_API_URL } from '@/lib/api/backendConfig';
 import { backendFetch, resolveRouteAuthToken } from '@/lib/api/backendProxy';
 import { readErrorMessage, readJsonResponse } from '@/lib/api/parseResponse';
-import { proxyEntitySoftDelete } from '@/lib/api/softDeleteProxy';
+import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
-function normalizeBranch(branch: Record<string, unknown>) {
-  return {
-    id: branch.id,
-    branchName: branch.branch_name ?? branch.branchName ?? '',
-    branchCode: branch.branch_code ?? branch.branchCode ?? '',
-    address: branch.address ?? '',
-    status: branch.status ?? '',
-    createdAt: branch.createdAt || branch.created_at || new Date().toISOString(),
-    updatedAt: branch.updatedAt || branch.updated_at || new Date().toISOString(),
-  };
-}
-
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function proxyEntitySoftDelete(
+  request: NextRequest,
+  entityPath: string,
+  id: string,
+  logPrefix: string
+): Promise<NextResponse> {
   try {
     const csrfValidation = await validateCsrfFromRequest(request);
     if (!csrfValidation.isValid) {
@@ -36,18 +32,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    const body = await request.json();
-    const backendUrl = `${BACKEND_API_URL}/api/v1/branches/${params.id}`;
+    const backendUrl = `${BACKEND_API_URL}/api/v1/${entityPath}/${id}`;
 
     let response: Response;
     try {
       response = await backendFetch(backendUrl, {
-        method: 'PUT',
+        method: 'DELETE',
         authToken,
-        body,
       });
     } catch (fetchError) {
-      console.error('[Branch Item API PUT] Fetch error:', fetchError);
+      console.error(`[${logPrefix} Soft Delete API] Fetch error:`, fetchError);
       return NextResponse.json(
         {
           success: false,
@@ -63,22 +57,21 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json(
         {
           success: false,
-          message: readErrorMessage(errorText, 'Failed to update branch'),
-          error: errorText || 'Failed to update branch',
+          message: readErrorMessage(errorText, 'Failed to delete record'),
+          error: errorText || 'Failed to delete record',
         },
         { status: response.status }
       );
     }
 
     const data = await readJsonResponse(response);
-    const rawBranch =
-      data && typeof data === 'object' && 'data' in data
-        ? (data as { data: Record<string, unknown> }).data
-        : data;
 
-    return NextResponse.json(normalizeBranch(rawBranch as Record<string, unknown>), { status: 200 });
+    return NextResponse.json(
+      data ?? { success: true, message: 'Record deleted successfully' },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error('[Branch Item API PUT] Error:', error);
+    console.error(`[${logPrefix} Soft Delete API] Error:`, error);
     return NextResponse.json(
       {
         success: false,
@@ -88,8 +81,4 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       { status: 500 }
     );
   }
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  return proxyEntitySoftDelete(request, 'branches', params.id, 'Branch');
 }

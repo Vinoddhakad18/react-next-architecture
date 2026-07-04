@@ -9,6 +9,12 @@ import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 import { formatApprovalAction, formatUserStatus } from '@/lib/users/approvalLabels';
+import { getAccessTokenRole } from '@/lib/auth/getAccessTokenClaims';
+import {
+  getUserRowActionAccess,
+  isUserStatusActive,
+  isSuperAdminRole,
+} from '@/lib/users/userRowAccess';
 
 export default function UserManagementPage() {
   const [filters, setFilters] = useState<UserListParams>({
@@ -51,6 +57,11 @@ export default function UserManagementPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createData, setCreateData] = useState<CreateUserRequest>(emptyCreate);
   const { permissions, setFromResponse } = usePagePermissions();
+  const [viewerIsSuperAdmin, setViewerIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    setViewerIsSuperAdmin(isSuperAdminRole(getAccessTokenRole()));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -62,10 +73,9 @@ export default function UserManagementPage() {
         ? rolesRes.data
         : (rolesRes.data as any)?.data ?? [];
       setRoleOptions(roles.map((r) => ({ value: r.id, label: r.name })));
-      const tree = Array.isArray(branchesRes.data)
-        ? branchesRes.data
-        : (branchesRes.data as any)?.data ?? [];
-      setBranchTree(tree);
+      if (branchesRes.success && branchesRes.data) {
+        setBranchTree(branchesRes.data);
+      }
     })().catch((err) => { console.error('[Users] Failed to load roles/branches', err); });
   }, []);
 
@@ -106,6 +116,7 @@ export default function UserManagementPage() {
   }, [filters, searchTerm, setFromResponse]);
 
   const {
+    workflowLoadingId,
     isExporting,
     handleToggleStatus,
     handleExport,
@@ -113,7 +124,12 @@ export default function UserManagementPage() {
     onRefresh: fetchUsers,
     onError: setError,
     toggleStatus: (id, active) => userService.toggleUserStatus(String(id), active),
-    exportData: () => userService.exportUsers(),
+    exportData: () =>
+      userService.exportUsers({
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        search: searchTerm || undefined,
+      }),
   });
 
   const openApprovalAction = (requestId: number, type: 'approve' | 'reject') => {
@@ -299,12 +315,12 @@ export default function UserManagementPage() {
     setSubmitError(null);
 
     try {
-      const response = await userService.deleteUser(userToDelete.id);
+      const response = await userService.softDeleteUser(userToDelete.id);
       if (response.success) {
         handleCloseDeleteModal();
         await fetchUsers();
       } else {
-        setSubmitError(response.error?.message || 'Failed to delete user');
+        setSubmitError(response.error?.message || 'Failed to soft delete user');
       }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -318,7 +334,7 @@ export default function UserManagementPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">User Management</h1>
-          <p className="mt-1 text-sm text-slate-500">View, edit, and soft delete users.</p>
+          <p className="mt-1 text-sm text-slate-500">View, edit, export, and soft delete users.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
@@ -368,7 +384,8 @@ export default function UserManagementPage() {
               <tbody className="divide-y divide-slate-200 bg-white">
                 {users.map((user) => {
                   const requestId = user.approval?.requestId;
-                  const isActive = user.status?.toUpperCase() === 'ACTIVE' || user.status?.toLowerCase() === 'active';
+                  const isActive = isUserStatusActive(user.status);
+                  const rowAccess = getUserRowActionAccess(user, viewerIsSuperAdmin);
 
                   return (
                   <tr key={`${user.id}-${requestId ?? 'row'}`}>
@@ -398,28 +415,39 @@ export default function UserManagementPage() {
                         approvalStatus={user.approvalStatus}
                         isActive={isActive}
                         approvalOnly={Boolean(user.approval?.hasPending)}
-                        onEdit={user.isPendingCreate ? undefined : () => handleEditUser(user)}
-                        onDelete={user.isPendingCreate ? undefined : () => handleDeleteClick(user)}
+                        onEdit={
+                          !user.isPendingCreate && rowAccess.canEdit
+                            ? () => handleEditUser(user)
+                            : undefined
+                        }
+                        onDelete={
+                          !user.isPendingCreate && rowAccess.canDelete
+                            ? () => handleDeleteClick(user)
+                            : undefined
+                        }
                         onApprove={
-                          requestId && user.approval?.hasPending
+                          rowAccess.canApprove && requestId && user.approval?.hasPending
                             ? () => openApprovalAction(requestId, 'approve')
                             : undefined
                         }
                         onReject={
-                          requestId && user.approval?.hasPending
+                          rowAccess.canApprove && requestId && user.approval?.hasPending
                             ? () => openApprovalAction(requestId, 'reject')
                             : undefined
                         }
                         onToggleStatus={
-                          user.isPendingCreate
-                            ? undefined
-                            : () => handleToggleStatus(user.id, !isActive)
+                          !user.isPendingCreate && rowAccess.canToggleStatus
+                            ? () => handleToggleStatus(user.id, !isActive)
+                            : undefined
                         }
-                        canDelete={user.roleName !== 'super_admin'}
+                        canEdit={rowAccess.canEdit}
+                        canDelete={rowAccess.canDelete}
+                        canApprove={rowAccess.canApprove}
                         actionLoading={
-                          requestId != null &&
-                          isSubmitting &&
-                          approvalAction?.requestId === requestId
+                          workflowLoadingId === user.id ||
+                          (requestId != null &&
+                            isSubmitting &&
+                            approvalAction?.requestId === requestId)
                         }
                       />
                     </td>

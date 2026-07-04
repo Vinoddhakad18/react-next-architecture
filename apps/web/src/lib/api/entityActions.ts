@@ -3,7 +3,8 @@
  */
 
 import { apiClient } from './client';
-import { apiConfig, getAuthHeader } from './config';
+import { apiConfig, getAuthHeader, getApiKeyHeader } from './config';
+import { isJsonContentType, readErrorMessage } from './parseResponse';
 import type { ApiError } from '@/types/api';
 
 type ActionResult = { success: boolean; error?: ApiError | null };
@@ -31,28 +32,58 @@ export async function toggleEntityStatus(endpoint: string, active: boolean): Pro
   return { success: result.success, error: result.error };
 }
 
+export interface DownloadExportOptions {
+  queryParams?: Record<string, string>;
+  accept?: string;
+}
+
 /**
  * Download a CSV/Excel export from the backend.
  */
-export async function downloadEntityExport(endpoint: string, filename: string): Promise<ActionResult> {
+export async function downloadEntityExport(
+  endpoint: string,
+  filename: string,
+  options?: DownloadExportOptions
+): Promise<ActionResult> {
   try {
-    const response = await fetch(`${apiConfig.baseUrl}${endpoint}`, {
+    const query = options?.queryParams
+      ? `?${new URLSearchParams(options.queryParams).toString()}`
+      : '';
+    const accept =
+      options?.accept ??
+      'application/octet-stream, text/csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    const response = await fetch(`${apiConfig.baseUrl}${endpoint}${query}`, {
       method: 'GET',
+      credentials: 'include',
       headers: {
-        Accept: 'application/octet-stream, text/csv, application/vnd.ms-excel',
+        Accept: accept,
+        ...getApiKeyHeader(),
         ...getAuthHeader(),
       },
     });
 
     if (!response.ok) {
-      let message = 'Export failed';
-      try {
-        const data = await response.json();
-        message = data.message || message;
-      } catch {
-        // response may not be JSON
-      }
-      return { success: false, error: { message, status: response.status } };
+      const text = await response.text();
+      return {
+        success: false,
+        error: {
+          message: readErrorMessage(text, 'Export failed'),
+          status: response.status,
+        },
+      };
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (isJsonContentType(contentType)) {
+      const text = await response.text();
+      return {
+        success: false,
+        error: {
+          message: readErrorMessage(text, 'Export failed'),
+          status: response.status,
+        },
+      };
     }
 
     const blob = await response.blob();

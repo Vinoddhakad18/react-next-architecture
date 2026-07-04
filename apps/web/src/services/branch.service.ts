@@ -11,6 +11,7 @@ import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/appr
 import { pickField, toBooleanFlag } from '@/lib/api/fieldAccess';
 import type { ApiResponse, PagePermissions } from '@/types/api';
 import type { Branch, BranchListParams, BranchListResponse, BranchTreeNode, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
+import { extractBranchTreePayload } from '@/lib/utils/normalizeBranchTree';
 
 export const branchService = {
   async getBranches(params?: BranchListParams) {
@@ -76,7 +77,17 @@ export const branchService = {
     }
 
     const endpoint = `${API_ENDPOINTS.BRANCHES.TREE}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    return apiClient.get<{ success: boolean; message: string; data: BranchTreeNode[] }>(endpoint, { auth: true });
+    const response = await apiClient.get<unknown>(endpoint, { auth: true });
+
+    if (!response.success || response.data == null) {
+      return response as ApiResponse<BranchTreeNode[]>;
+    }
+
+    return {
+      success: true,
+      error: null,
+      data: extractBranchTreePayload(response.data),
+    };
   },
 
   async createBranch(branch: CreateBranchRequest) {
@@ -95,11 +106,15 @@ export const branchService = {
     );
   },
 
-  async deleteBranch(id: number) {
-    return apiClient.delete<Branch>(
-      API_ENDPOINTS.BRANCHES.DELETE(id),
+  async softDeleteBranch(id: number) {
+    return apiClient.delete<{ success: boolean; message?: string }>(
+      API_ENDPOINTS.BRANCHES.SOFT_DELETE(id),
       { auth: true }
     );
+  },
+
+  async deleteBranch(id: number) {
+    return this.softDeleteBranch(id);
   },
 
   async approveBranchRequest(requestId: number, comment: string) {
@@ -114,8 +129,20 @@ export const branchService = {
     return toggleEntityStatus(API_ENDPOINTS.BRANCHES.STATUS(id), active);
   },
 
-  async exportBranches() {
-    return downloadEntityExport(API_ENDPOINTS.BRANCHES.EXPORT, 'branches-export.csv');
+  async exportBranches(params?: Pick<BranchListParams, 'sortBy' | 'sortOrder' | 'search'>) {
+    const queryParams: Record<string, string> = {
+      sort_by: params?.sortBy ?? 'branch_name',
+      sort_order: params?.sortOrder ?? 'ASC',
+    };
+
+    if (params?.search) {
+      queryParams.search = params.search;
+    }
+
+    return downloadEntityExport(API_ENDPOINTS.BRANCHES.EXPORT, 'branches-export.xlsx', {
+      queryParams,
+      accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
   },
 };
 
@@ -123,8 +150,8 @@ export function normalizeBranch(branch: Record<string, unknown>): Branch {
   const approval = normalizeApprovalObject(branch.approval);
   return {
     id: Number(branch.id),
-    branchName: String(branch.branch_name ?? branch.branchName ?? ''),
-    branchCode: String(branch.branch_code ?? branch.branchCode ?? ''),
+    branchName: String(branch.branch_name ?? branch.branchName ?? branch.name ?? ''),
+    branchCode: String(branch.branch_code ?? branch.branchCode ?? branch.code ?? ''),
     address: String(branch.address ?? ''),
     status: String(branch.status ?? ''),
     approval,

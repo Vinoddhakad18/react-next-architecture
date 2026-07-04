@@ -163,7 +163,12 @@ export default function MenuManagementPage() {
     onRefresh: fetchMenus,
     onError: setError,
     toggleStatus: (id, active) => menuService.toggleMenuStatus(Number(id), active),
-    exportData: () => menuService.exportMenus(),
+    exportData: () =>
+      menuService.exportMenus({
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        search: searchTerm || undefined,
+      }),
   });
 
   const {

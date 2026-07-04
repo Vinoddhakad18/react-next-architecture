@@ -6,7 +6,25 @@
  * own their response normalization; this only standardizes the outgoing request.
  */
 
+import { cookies } from 'next/headers';
+import type { NextRequest } from 'next/server';
 import { getBackendApiKey } from './backendConfig';
+
+/** Resolve bearer token from httpOnly cookie or Authorization header. */
+export async function resolveRouteAuthToken(request: NextRequest): Promise<string | undefined> {
+  const cookieStore = await cookies();
+  const fromCookie = cookieStore.get('authToken')?.value;
+  if (fromCookie) {
+    return fromCookie;
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice('Bearer '.length);
+  }
+
+  return undefined;
+}
 
 export interface BackendFetchOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -16,6 +34,11 @@ export interface BackendFetchOptions {
   body?: unknown;
   /** Adds `Cache-Control`/`Pragma` no-cache headers (used by read endpoints). */
   noCache?: boolean;
+}
+
+export interface BackendBinaryFetchOptions {
+  authToken: string;
+  accept?: string;
 }
 
 export async function backendFetch(
@@ -41,6 +64,21 @@ export async function backendFetch(
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    cache: 'no-store',
+  });
+}
+
+export async function backendBinaryFetch(
+  url: string,
+  { authToken, accept = 'application/octet-stream' }: BackendBinaryFetchOptions
+): Promise<Response> {
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: accept,
+      'X-API-Key': getBackendApiKey(),
+      Authorization: `Bearer ${authToken}`,
+    },
     cache: 'no-store',
   });
 }

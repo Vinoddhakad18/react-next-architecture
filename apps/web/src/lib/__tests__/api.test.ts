@@ -17,7 +17,7 @@ describe('API Client', () => {
     const mockResponse = { success: true, data: { message: 'Success' } };
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const result = await apiClient.get('/test');
@@ -37,7 +37,7 @@ describe('API Client', () => {
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const result = await apiClient.post('/test', postData);

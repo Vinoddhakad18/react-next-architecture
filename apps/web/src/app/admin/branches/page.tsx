@@ -79,7 +79,12 @@ export default function BranchManagementPage() {
     onRefresh: fetchBranches,
     onError: setError,
     toggleStatus: (id, active) => branchService.toggleBranchStatus(Number(id), active),
-    exportData: () => branchService.exportBranches(),
+    exportData: () =>
+      branchService.exportBranches({
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        search: searchTerm || undefined,
+      }),
   });
 
   const {
@@ -171,12 +176,12 @@ export default function BranchManagementPage() {
     setSubmitError(null);
 
     try {
-      const response = await branchService.deleteBranch(branchToDelete.id);
+      const response = await branchService.softDeleteBranch(branchToDelete.id);
       if (response.success) {
         handleCloseDeleteModal();
         await fetchBranches();
       } else {
-        setSubmitError(response.error?.message || 'Failed to delete branch');
+        setSubmitError(response.error?.message || 'Failed to soft delete branch');
       }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -251,7 +256,7 @@ export default function BranchManagementPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Branch Management</h1>
-          <p className="mt-1 text-sm text-slate-500">View and manage your branch list.</p>
+          <p className="mt-1 text-sm text-slate-500">View, manage, export, and soft delete branches.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
@@ -413,10 +418,10 @@ export default function BranchManagementPage() {
           </form>
         </Modal>
 
-        <Modal isOpen={isDeleteModalOpen} onClose={handleCloseDeleteModal} title="Delete Branch" size="sm">
+        <Modal isOpen={isDeleteModalOpen} onClose={handleCloseDeleteModal} title="Soft Delete Branch" size="sm">
           <div className="space-y-4">
             <p className="text-sm text-slate-700">
-              Are you sure you want to delete{' '}
+              Are you sure you want to soft delete{' '}
               <span className="font-semibold">{branchToDelete?.branchName}</span>?
             </p>
             {submitError ? (

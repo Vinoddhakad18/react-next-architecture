@@ -5,9 +5,11 @@
 
 import { apiConfig, getAuthHeader } from './config';
 import { API_ENDPOINTS } from './endpoints';
+import { readJsonResponse } from './parseResponse';
 import { tokenManager } from '@/lib/auth/TokenManager';
+import { extractAuthTokensFromApiResponse } from '@/lib/auth/normalizeAuthTokens';
 import { getCsrfTokenFromCookie } from '@/lib/utils/csrf';
-import type { ApiResponse, ApiError, RefreshTokenResponse } from '@/types/api';
+import type { ApiResponse, ApiError } from '@/types/api';
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -67,7 +69,7 @@ class ApiClient {
         headers: {
           ...apiConfig.headers,
         },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
       if (!response.ok) {
@@ -75,12 +77,13 @@ class ApiClient {
         return false;
       }
 
-      const data = await response.json() as { success: boolean; data: RefreshTokenResponse };
+      const data = await readJsonResponse(response);
 
-      if (data.success && data.data?.accessToken) {
-        tokenManager.setToken(data.data.accessToken);
-        if (data.data.refreshToken) {
-          tokenManager.setRefreshToken(data.data.refreshToken);
+      const tokens = extractAuthTokensFromApiResponse(data);
+      if (tokens?.accessToken) {
+        tokenManager.setToken(tokens.accessToken);
+        if (tokens.refreshToken) {
+          tokenManager.setRefreshToken(tokens.refreshToken);
         }
         return true;
       }
@@ -131,7 +134,7 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) {
         if (
@@ -150,14 +153,20 @@ class ApiClient {
         }
 
         const error: ApiError = {
-          message: data.message || 'An error occurred',
+          message:
+            (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string'
+              ? data.message
+              : null) || 'An error occurred',
           status: response.status,
-          errors: data.errors,
+          errors:
+            data && typeof data === 'object' && 'errors' in data
+              ? (data.errors as ApiError['errors'])
+              : undefined,
         };
         return { data: null as unknown as TResponse, error, success: false };
       }
 
-      return { data, error: null, success: true };
+      return { data: data as TResponse, error: null, success: true };
     } catch (err) {
       clearTimeout(timeoutId);
 

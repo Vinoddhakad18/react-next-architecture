@@ -149,7 +149,12 @@ export default function RoleManagementPage() {
     onRefresh: fetchRoles,
     onError: setError,
     toggleStatus: (id, active) => roleService.toggleRoleStatus(Number(id), active),
-    exportData: () => roleService.exportRoles(),
+    exportData: () =>
+      roleService.exportRoles({
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        search: searchTerm || undefined,
+      }),
   });
 
   const {

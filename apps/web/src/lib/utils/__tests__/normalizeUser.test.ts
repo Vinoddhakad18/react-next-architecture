@@ -1,4 +1,4 @@
-import { normalizeUser } from '../normalizeUser';
+import { normalizeAccountStatus, normalizeUser } from '../normalizeUser';
 
 describe('normalizeUser', () => {
   it('maps snake_case backend fields to the frontend User shape', () => {
@@ -29,6 +29,22 @@ describe('normalizeUser', () => {
     const result = normalizeUser({ id: 1, isActive: false });
     expect(result.status).toBe('inactive');
     expect(result.branchIds).toEqual([]);
+  });
+
+  it('derives status from numeric is_active flag', () => {
+    expect(normalizeUser({ id: 1, is_active: 1 }).status).toBe('active');
+    expect(normalizeUser({ id: 1, is_active: 0 }).status).toBe('inactive');
+  });
+
+  it('normalizes uppercase ACTIVE status', () => {
+    expect(normalizeUser({ id: 1, status: 'ACTIVE' }).status).toBe('active');
+    expect(normalizeUser({ id: 1, status: 'INACTIVE' }).status).toBe('inactive');
+  });
+
+  it('normalizeAccountStatus maps common values', () => {
+    expect(normalizeAccountStatus('ACTIVE')).toBe('active');
+    expect(normalizeAccountStatus('inactive')).toBe('inactive');
+    expect(normalizeAccountStatus(true)).toBe('active');
   });
 
   it('maps snake_case nested approval fields', () => {

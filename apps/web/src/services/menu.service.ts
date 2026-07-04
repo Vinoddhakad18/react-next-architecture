@@ -129,8 +129,24 @@ export const menuService = {
     return toggleEntityStatus(API_ENDPOINTS.MENUS.STATUS(id), active);
   },
 
-  async exportMenus() {
-    return downloadEntityExport(API_ENDPOINTS.MENUS.EXPORT, 'menus-export.csv');
+  async exportMenus(params?: Pick<MenuListParams, 'sortBy' | 'sortOrder' | 'search' | 'isActive'>) {
+    const queryParams: Record<string, string> = {
+      sort_by: params?.sortBy ?? 'sort_order',
+      sort_order: params?.sortOrder ?? 'ASC',
+    };
+
+    if (params?.search) {
+      queryParams.search = params.search;
+    }
+
+    if (params?.isActive !== undefined) {
+      queryParams.is_active = params.isActive.toString();
+    }
+
+    return downloadEntityExport(API_ENDPOINTS.MENUS.EXPORT, 'menus-export.xlsx', {
+      queryParams,
+      accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
   },
 };
 

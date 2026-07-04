@@ -14,12 +14,12 @@ export const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:
  * silently falling back to an insecure hardcoded default.
  */
 export function getBackendApiKey(): string {
-  const key = process.env.API_KEY;
+  const key = process.env.API_KEY ?? process.env.NEXT_PUBLIC_API_KEY;
 
   if (!key) {
     throw new Error(
       'API_KEY environment variable is not set. Configure a server-only API_KEY ' +
-        '(do not use NEXT_PUBLIC_API_KEY, which is exposed to the browser).'
+        '(or NEXT_PUBLIC_API_KEY for local development).'
     );
   }
 

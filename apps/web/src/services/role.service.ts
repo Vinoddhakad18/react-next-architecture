@@ -110,8 +110,24 @@ export const roleService = {
     return toggleEntityStatus(API_ENDPOINTS.ROLES.STATUS(id), active);
   },
 
-  async exportRoles() {
-    return downloadEntityExport(API_ENDPOINTS.ROLES.EXPORT, 'roles-export.csv');
+  async exportRoles(params?: Pick<RoleListParams, 'sortBy' | 'sortOrder' | 'search' | 'isActive'>) {
+    const queryParams: Record<string, string> = {
+      sort_by: params?.sortBy ?? 'id',
+      sort_order: params?.sortOrder ?? 'ASC',
+    };
+
+    if (params?.search) {
+      queryParams.search = params.search;
+    }
+
+    if (params?.isActive !== undefined) {
+      queryParams.is_active = params.isActive.toString();
+    }
+
+    return downloadEntityExport(API_ENDPOINTS.ROLES.EXPORT, 'roles-export.xlsx', {
+      queryParams,
+      accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
   },
 };
 

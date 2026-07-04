@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button, Checkbox, Select } from '@/components/ui';
+import { Button, Checkbox, Select, ExportButton } from '@/components/ui';
 import type { Menu, Role } from '@/types/api';
-import { menuService } from '@/services/menu.service';
-import { roleService } from '@/services/role.service';
+import { menuService, permissionService, roleService } from '@/services';
 import { apiClient } from '@/lib/api';
 
 interface Permission {
@@ -165,6 +164,7 @@ export default function RBACPermissionsPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch active roles and menus on component mount
@@ -519,6 +519,27 @@ export default function RBACPermissionsPage() {
     setPermissions(JSON.parse(JSON.stringify(originalPermissions)));
     setHasChanges(false);
     setSaveSuccess(false);
+  };
+
+  const handleExport = async () => {
+    if (!selectedRole) {
+      setError('Please select a role to export permissions');
+      return;
+    }
+
+    setIsExporting(true);
+    setError(null);
+
+    try {
+      const result = await permissionService.exportPermissions({ roleId: selectedRole });
+      if (!result.success) {
+        setError(result.error?.message || 'Export failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const getMenuPermissions = (menuId: number): Permission => {
@@ -907,6 +928,12 @@ export default function RBACPermissionsPage() {
 
         {/* Action Buttons */}
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-end gap-3">
+          <ExportButton
+            allowed={!!selectedRole}
+            onExport={handleExport}
+            isLoading={isExporting}
+            className="w-full sm:w-auto"
+          />
           <Button
             variant="outline"
             onClick={handleCancel}

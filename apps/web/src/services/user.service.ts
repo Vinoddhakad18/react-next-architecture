@@ -62,11 +62,15 @@ export const userService = {
     );
   },
 
-  async deleteUser(id: string) {
+  async softDeleteUser(id: string) {
     return apiClient.delete<{ success: boolean; message?: string }>(
-      API_ENDPOINTS.USERS.DELETE(id),
+      API_ENDPOINTS.USERS.SOFT_DELETE(id),
       { auth: true }
     );
+  },
+
+  async deleteUser(id: string) {
+    return this.softDeleteUser(id);
   },
 
   /** Approve: POST body `{ comment }` */
@@ -93,7 +97,19 @@ export const userService = {
     return toggleEntityStatus(API_ENDPOINTS.USERS.STATUS(id), active);
   },
 
-  async exportUsers() {
-    return downloadEntityExport(API_ENDPOINTS.USERS.EXPORT, 'users-export.csv');
+  async exportUsers(params?: Pick<UserListParams, 'sortBy' | 'sortOrder' | 'search'>) {
+    const queryParams: Record<string, string> = {
+      sort_by: params?.sortBy ?? 'name',
+      sort_order: params?.sortOrder ?? 'ASC',
+    };
+
+    if (params?.search) {
+      queryParams.search = params.search;
+    }
+
+    return downloadEntityExport(API_ENDPOINTS.USERS.EXPORT, 'users-export.xlsx', {
+      queryParams,
+      accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
   },
 };

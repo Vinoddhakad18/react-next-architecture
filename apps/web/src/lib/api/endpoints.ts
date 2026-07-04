@@ -25,8 +25,9 @@ export const API_ENDPOINTS = {
     CREATE: '/api/v1/users',
     UPDATE: (id: string) => `/api/v1/users/${id}`,
     DELETE: (id: string) => `/api/v1/users/${id}`,
+    SOFT_DELETE: (id: string) => `/api/v1/users/${id}`,
     STATUS: (id: string) => `/api/v1/users/${id}/status`,
-    EXPORT: '/api/v1/users/export',
+    EXPORT: '/api/v1/users/export/excel',
     APPROVAL_APPROVE: (requestId: number) => `/api/v1/users/approvals/${requestId}/approve`,
     APPROVAL_REJECT: (requestId: number) => `/api/v1/users/approvals/${requestId}/reject`,
   },
@@ -50,7 +51,7 @@ export const API_ENDPOINTS = {
     APPROVAL_APPROVE: (requestId: number) => `/api/v1/menus/approvals/${requestId}/approve`,
     APPROVAL_REJECT: (requestId: number) => `/api/v1/menus/approvals/${requestId}/reject`,
     STATUS: (id: number) => `/api/v1/menus/${id}/status`,
-    EXPORT: '/api/v1/menus/export',
+    EXPORT: '/api/v1/menus/export/excel',
   },
 
   // Roles
@@ -64,7 +65,13 @@ export const API_ENDPOINTS = {
     APPROVAL_APPROVE: (requestId: number) => `/api/v1/roles/approvals/${requestId}/approve`,
     APPROVAL_REJECT: (requestId: number) => `/api/v1/roles/approvals/${requestId}/reject`,
     STATUS: (id: number) => `/api/v1/roles/${id}/status`,
-    EXPORT: '/api/v1/roles/export',
+    EXPORT: '/api/v1/roles/export/excel',
+  },
+
+  // Permissions (RBAC)
+  PERMISSIONS: {
+    LIST: '/api/v1/permissions',
+    EXPORT: '/api/v1/permissions/export/excel',
   },
 
   // Branches
@@ -75,10 +82,11 @@ export const API_ENDPOINTS = {
     GET: (id: number) => `/api/v1/branches/${id}`,
     UPDATE: (id: number) => `/api/v1/branches/${id}`,
     DELETE: (id: number) => `/api/v1/branches/${id}`,
+    SOFT_DELETE: (id: number) => `/api/v1/branches/${id}`,
     APPROVAL_APPROVE: (requestId: number) => `/api/v1/branches/approvals/${requestId}/approve`,
     APPROVAL_REJECT: (requestId: number) => `/api/v1/branches/approvals/${requestId}/reject`,
     STATUS: (id: number) => `/api/v1/branches/${id}/status`,
-    EXPORT: '/api/v1/branches/export',
+    EXPORT: '/api/v1/branches/export/excel',
   },
 
   // Health Check

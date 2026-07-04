@@ -10,6 +10,61 @@ export function resolveUserApprovalStatus(
   return resolveEntityApprovalStatus(approval);
 }
 
+/** Normalize backend account status to `active` / `inactive` when recognized. */
+export function normalizeAccountStatus(value: unknown): string {
+  if (value === true || value === 1) {
+    return 'active';
+  }
+  if (value === false || value === 0) {
+    return 'inactive';
+  }
+
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const lower = raw.toLowerCase();
+  if (lower === 'active' || lower === 'enabled') {
+    return 'active';
+  }
+  if (lower === 'inactive' || lower === 'disabled') {
+    return 'inactive';
+  }
+
+  return raw;
+}
+
+function resolveUserAccountStatus(
+  user: Record<string, unknown>,
+  previousData?: Record<string, unknown>
+): string {
+  const explicitStatus =
+    pickField(user, 'status') ??
+    pickField(user, 'accountStatus', 'account_status');
+
+  if (explicitStatus !== undefined && explicitStatus !== null) {
+    if (typeof explicitStatus === 'boolean' || typeof explicitStatus === 'number') {
+      return normalizeAccountStatus(explicitStatus);
+    }
+    if (String(explicitStatus).trim() !== '') {
+      return normalizeAccountStatus(explicitStatus);
+    }
+  }
+
+  const previousStatus = previousData?.status;
+  if (previousStatus !== undefined && previousStatus !== null && String(previousStatus).trim() !== '') {
+    return normalizeAccountStatus(previousStatus);
+  }
+
+  const activeFlag = pickField(user, 'isActive', 'is_active');
+  if (activeFlag !== undefined && activeFlag !== null && String(activeFlag).trim() !== '') {
+    return toBooleanFlag(activeFlag) ? 'active' : 'inactive';
+  }
+
+  return '';
+}
+
 /**
  * Normalize a backend user record (snake_case or camelCase) into the frontend User shape.
  */
@@ -17,20 +72,7 @@ export function normalizeUser(user: Record<string, unknown>, options?: { isPendi
   const approval = normalizeApprovalObject(user.approval);
   const previousData = approval?.previousData;
 
-  const status =
-    user.status !== undefined && user.status !== null && String(user.status).trim() !== ''
-      ? String(user.status)
-      : previousData?.status !== undefined
-      ? String(previousData.status)
-      : typeof user.isActive === 'boolean'
-      ? user.isActive
-        ? 'active'
-        : 'inactive'
-      : typeof user.is_active === 'boolean'
-      ? user.is_active
-        ? 'active'
-        : 'inactive'
-      : '';
+  const status = resolveUserAccountStatus(user, previousData);
 
   const branchIds: number[] = Array.isArray(user.branchIds)
     ? user.branchIds.map(Number)
