@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { Menu, MenuListParams } from '@/types/api';
+import type { Menu, MenuListParams, MenuListResponse } from '@/types/api';
 import { ActionButton, Button, Modal, Input, Select, Checkbox, RowActions, ExportButton, EntityApprovalCell, EntityApprovalReviewModal, UserApprovalActionModal } from '@/components/ui';
-import { menuService, normalizeMenu } from '@/services';
+import { menuService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
@@ -67,81 +67,14 @@ export default function MenuManagementPage() {
       if (response.success && response.data) {
         setFromResponse(response.data);
 
-        // response.data might be the raw backend response: { success, message, data: { data: [...], pagination: {...} } }
-        // OR it might be the normalized response: { data: [...], meta: {...} }
-        // Typed as `any` because the runtime shape is probed defensively below.
-        const menuListResponse: any = response.data;
-        
-        // Handle different response structures
-        let menusArray: Menu[] = [];
-        let paginationData = {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-        };
-
-        // Check if response.data is the raw backend response with nested structure
-        // Format: { success: true, message: "...", data: { data: [...], pagination: {...} } }
-        if (menuListResponse && typeof menuListResponse === 'object') {
-          // Check for nested structure: response.data.data.data (array) and response.data.data.pagination
-          if (menuListResponse.data && typeof menuListResponse.data === 'object' && menuListResponse.data.data && Array.isArray(menuListResponse.data.data)) {
-            const backendData = menuListResponse.data;
-            
-            // Extract and normalize the menus array from backendData.data
-            menusArray = backendData.data.map((menu: Record<string, unknown>) => normalizeMenu(menu));
-            
-            // Extract pagination from backendData.pagination
-            const pagination = backendData.pagination || backendData.meta || {};
-            paginationData = {
-              page: pagination.page || filters.page || 1,
-              limit: pagination.limit || filters.limit || 10,
-              total: pagination.total ?? menusArray.length,
-              totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(menusArray.length / (pagination.limit || filters.limit || 10)),
-            };
-          }
-          // Also check for the case where success property exists (raw backend response wrapper)
-          else if (menuListResponse.success && menuListResponse.data && typeof menuListResponse.data === 'object') {
-            const backendData = menuListResponse.data;
-            
-            if (backendData.data && Array.isArray(backendData.data)) {
-              menusArray = backendData.data.map((menu: Record<string, unknown>) => normalizeMenu(menu));
-              
-              const pagination = backendData.pagination || backendData.meta || {};
-              paginationData = {
-                page: pagination.page || filters.page || 1,
-                limit: pagination.limit || filters.limit || 10,
-                total: pagination.total ?? menusArray.length,
-                totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(menusArray.length / (pagination.limit || filters.limit || 10)),
-              };
-            }
-          }
-        }
-        // Check if response.data is directly an array
-        else if (Array.isArray(menuListResponse)) {
-          menusArray = menuListResponse.map((menu: Record<string, unknown>) => normalizeMenu(menu));
-          paginationData = {
-            page: filters.page || 1,
-            limit: filters.limit || 10,
-            total: menusArray.length,
-            totalPages: Math.ceil(menusArray.length / (filters.limit || 10)),
-          };
-        } 
-        // Check if response.data is the normalized MenuListResponse: { data: Menu[], meta: {...} }
-        else if (menuListResponse && typeof menuListResponse === 'object' && menuListResponse.data) {
-          if (Array.isArray(menuListResponse.data)) {
-            menusArray = menuListResponse.data;
-            paginationData = {
-              page: menuListResponse.meta?.page || filters.page || 1,
-              limit: menuListResponse.meta?.limit || filters.limit || 10,
-              total: menuListResponse.meta?.total ?? menusArray.length,
-              totalPages: menuListResponse.meta?.totalPages ?? Math.ceil(menusArray.length / (menuListResponse.meta?.limit || filters.limit || 10)),
-            };
-          }
-        }
-
-        setMenus(menusArray);
-        setPagination(paginationData);
+        const list = response.data as MenuListResponse;
+        setMenus(Array.isArray(list.data) ? list.data : []);
+        setPagination({
+          page: list.meta?.page ?? filters.page ?? 1,
+          limit: list.meta?.limit ?? filters.limit ?? 10,
+          total: list.meta?.total ?? 0,
+          totalPages: list.meta?.totalPages ?? 0,
+        });
       } else {
         setError(response.error?.message || 'Failed to fetch menus');
         setMenus([]); // Set empty array on error

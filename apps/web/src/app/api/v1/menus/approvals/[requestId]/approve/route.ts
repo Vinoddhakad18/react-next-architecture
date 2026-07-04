@@ -1,10 +1,16 @@
 import { NextRequest } from 'next/server';
 
-import { proxyModuleApprovalAction } from '@/lib/api/approvalProxy';
+import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
+import { proxyMenuApprovalAction } from '@/lib/api/menuEncryptedProxy';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { requestId: string } }
 ) {
-  return proxyModuleApprovalAction(request, 'menus', params.requestId, 'approve');
+  const csrfValidation = await validateCsrfFromRequest(request);
+  if (!csrfValidation.isValid) {
+    return createCsrfErrorResponse();
+  }
+
+  return proxyMenuApprovalAction(request, params.requestId, 'approve');
 }

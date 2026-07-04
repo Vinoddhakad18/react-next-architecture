@@ -3,11 +3,15 @@
  */
 
 import {
+  appendEncryptedQueryToUrl as appendEncryptedQueryToUrlCore,
   buildEncryptedRequestBody as buildEncryptedRequestBodyCore,
+  buildEncryptedQueryString as buildEncryptedQueryStringCore,
   CUSTOM_REQUEST_DATA_FIELD,
   CUSTOM_RESPONSE_DATA_FIELD,
   decryptCustomPayload as decryptCustomPayloadCore,
+  decryptQueryPayload as decryptQueryPayloadCore,
   encryptCustomPayload as encryptCustomPayloadCore,
+  isEncryptedQueryParams as isEncryptedQueryParamsCore,
 } from './customEncryptCore';
 
 const DEFAULT_ENCRYPT_DECRYPT_KEY =
@@ -31,11 +35,33 @@ export function buildEncryptedLoginBody(credentials: { email: string; password: 
   return buildEncryptedRequestBodyCore(getClientEncryptKey(), credentials);
 }
 
-export interface DecryptedAuthResponse {
+export function buildEncryptedRequestBody(payload: unknown) {
+  return buildEncryptedRequestBodyCore(getClientEncryptKey(), payload);
+}
+
+export function buildEncryptedQueryString(payload: unknown) {
+  return buildEncryptedQueryStringCore(getClientEncryptKey(), payload);
+}
+
+export function appendEncryptedQueryToUrl(url: string, payload: unknown) {
+  return appendEncryptedQueryToUrlCore(getClientEncryptKey(), url, payload);
+}
+
+export function decryptQueryPayload(searchParams: URLSearchParams) {
+  return decryptQueryPayloadCore(getClientEncryptKey(), searchParams);
+}
+
+export function isEncryptedQueryParams(searchParams: URLSearchParams) {
+  return isEncryptedQueryParamsCore(searchParams);
+}
+
+export interface DecryptedApiResponse {
   success: boolean;
   message?: string;
   data?: unknown;
   errors?: unknown;
+  permissions?: unknown;
+  meta?: unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -43,9 +69,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Unwrap login/auth API responses that use encrypted response_data.
+ * Unwrap API responses that use encrypted response_data.
  */
-export function decryptAuthResponse(body: unknown): DecryptedAuthResponse {
+export function decryptApiResponse(body: unknown): DecryptedApiResponse {
   if (!isRecord(body)) {
     return { success: false, message: 'Invalid response' };
   }
@@ -74,25 +100,33 @@ export function decryptAuthResponse(body: unknown): DecryptedAuthResponse {
     message: typeof decrypted.message === 'string' ? decrypted.message : message,
     data: decrypted.data,
     errors: decrypted.errors,
+    permissions: decrypted.permissions,
+    meta: decrypted.meta,
   };
 }
 
 /**
- * Normalize apiClient login response — handles plain or response_data payloads.
+ * Normalize apiClient response — handles plain or response_data payloads.
  */
-export function unwrapAuthApiResponse(responseData: unknown): DecryptedAuthResponse {
+export function unwrapApiResponse(responseData: unknown): DecryptedApiResponse {
   if (!isRecord(responseData)) {
     return { success: false };
   }
 
   if (typeof responseData[CUSTOM_RESPONSE_DATA_FIELD] === 'string') {
-    return decryptAuthResponse(responseData);
+    return decryptApiResponse(responseData);
   }
 
   return {
     success: responseData.success !== false,
     message: typeof responseData.message === 'string' ? responseData.message : undefined,
-    data: responseData.data,
+    data: responseData.data ?? responseData,
     errors: responseData.errors,
   };
 }
+
+/** @deprecated Use unwrapApiResponse */
+export const unwrapAuthApiResponse = unwrapApiResponse;
+
+/** @deprecated Use decryptApiResponse */
+export const decryptAuthResponse = decryptApiResponse;

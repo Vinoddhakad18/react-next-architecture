@@ -6,15 +6,19 @@
 
 import { getEncryptDecryptKey } from './backendConfig';
 import {
+  appendEncryptedQueryToUrl as appendEncryptedQueryToUrlCore,
   buildEncryptedRequestBody as buildEncryptedRequestBodyCore,
+  buildEncryptedQueryString as buildEncryptedQueryStringCore,
   CUSTOM_REQUEST_DATA_FIELD,
   CUSTOM_RESPONSE_DATA_FIELD,
   decodeString as decodeStringCore,
   decryptCustomPayload as decryptCustomPayloadCore,
   decryptCustomTokenValue as decryptCustomTokenValueCore,
+  decryptQueryPayload as decryptQueryPayloadCore,
   encodeString as encodeStringCore,
   encryptCustomPayload as encryptCustomPayloadCore,
   encryptCustomToken as encryptCustomTokenCore,
+  isEncryptedQueryParams as isEncryptedQueryParamsCore,
 } from './customEncryptCore';
 
 export { CUSTOM_REQUEST_DATA_FIELD, CUSTOM_RESPONSE_DATA_FIELD };
@@ -87,6 +91,22 @@ export function decryptBackendResponse(body: unknown): DecryptedBackendResponse 
  */
 export function buildEncryptedRequestBody(payload: unknown): Record<string, string> {
   return buildEncryptedRequestBodyCore(getEncryptDecryptKey(), payload);
+}
+
+export function buildEncryptedQueryString(payload: unknown): string {
+  return buildEncryptedQueryStringCore(getEncryptDecryptKey(), payload);
+}
+
+export function appendEncryptedQueryToUrl(url: string, payload: unknown): string {
+  return appendEncryptedQueryToUrlCore(getEncryptDecryptKey(), url, payload);
+}
+
+export function decryptQueryPayload(searchParams: URLSearchParams): unknown | null {
+  return decryptQueryPayloadCore(getEncryptDecryptKey(), searchParams);
+}
+
+export function isEncryptedQueryParams(searchParams: URLSearchParams): boolean {
+  return isEncryptedQueryParamsCore(searchParams);
 }
 
 export function isEncryptedRequestBody(body: unknown): body is Record<string, string> {

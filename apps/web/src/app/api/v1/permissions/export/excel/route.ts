@@ -1,32 +1,11 @@
 /**
  * Permission Export Excel API Route
- * Proxies Excel export download to the backend API.
+ * Proxies Excel export download to the backend API with encrypted query params.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { proxyEntityExcelExport } from '@/lib/api/exportProxy';
+import { NextRequest } from 'next/server';
+import { proxyPermissionExcelExport } from '@/lib/api/permissionEncryptedProxy';
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const roleId = searchParams.get('role_id') ?? searchParams.get('roleId');
-
-  if (!roleId) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'role_id is required',
-        error: 'role_id query parameter is required for permissions export',
-      },
-      { status: 400 }
-    );
-  }
-
-  return proxyEntityExcelExport(request, {
-    entityPath: 'permissions',
-    defaultFilename: `rbac-permissions-role-${roleId}.xlsx`,
-    defaultSortBy: 'menu_id',
-    failureMessage: 'Failed to export permissions',
-    logPrefix: 'Permission',
-    extraQueryParams: { role_id: roleId },
-  });
+  return proxyPermissionExcelExport(request);
 }

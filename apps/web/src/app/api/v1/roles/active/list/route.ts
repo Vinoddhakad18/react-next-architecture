@@ -4,20 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 import { BACKEND_API_URL } from '@/lib/api/backendConfig';
-import { backendFetch } from '@/lib/api/backendProxy';
+import { backendFetch, resolveRouteAuthToken } from '@/lib/api/backendProxy';
 
 /**
  * GET /api/v1/roles/active/list
  * Fetch list of active roles
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Get authentication token from cookies
-    const cookieStore = await cookies();
-    const authToken = cookieStore.get('authToken')?.value;
+    const authToken = await resolveRouteAuthToken(request);
 
     if (!authToken) {
       return NextResponse.json(

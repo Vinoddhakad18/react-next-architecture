@@ -131,6 +131,7 @@ class ApiClient {
         },
         body: body ? JSON.stringify(toSnakeCaseKeys(body)) : undefined,
         signal: controller.signal,
+        credentials: 'include',
       });
 
       clearTimeout(timeoutId);

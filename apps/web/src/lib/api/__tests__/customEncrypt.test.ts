@@ -1,28 +1,22 @@
-import { describe, expect, it, beforeEach, afterEach } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 
 import {
   CUSTOM_REQUEST_DATA_FIELD,
   CUSTOM_RESPONSE_DATA_FIELD,
+  appendEncryptedQueryToUrl,
+  buildEncryptedQueryString,
   decryptBackendResponse,
   decryptCustomPayload,
   decryptCustomTokenValue,
+  decryptQueryPayload,
   encryptCustomPayload,
   encryptCustomToken,
   encodeString,
   decodeString,
+  isEncryptedQueryParams,
 } from '../customEncrypt';
 
-const ENCRYPT_KEY = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-
 describe('customEncrypt', () => {
-  beforeEach(() => {
-    process.env.ENCRYPT_DECRYPT_KEY = ENCRYPT_KEY;
-  });
-
-  afterEach(() => {
-    delete process.env.ENCRYPT_DECRYPT_KEY;
-  });
-
   describe('encodeString / decodeString', () => {
     it('round-trips ASCII strings', () => {
       const input = 'hello world';
@@ -86,6 +80,43 @@ describe('customEncrypt', () => {
     it('uses expected field constants', () => {
       expect(CUSTOM_REQUEST_DATA_FIELD).toBe('request_data');
       expect(CUSTOM_RESPONSE_DATA_FIELD).toBe('response_data');
+    });
+  });
+
+  describe('encrypted query parameters', () => {
+    it('round-trips query params via request_data', () => {
+      const payload = { page: '1', per_page: '10', sort_by: 'sort_order', sort_order: 'ASC' };
+      const queryString = buildEncryptedQueryString(payload);
+
+      expect(queryString.startsWith('?request_data=')).toBe(true);
+
+      const searchParams = new URLSearchParams(queryString.slice(1));
+      expect(isEncryptedQueryParams(searchParams)).toBe(true);
+      expect(decryptQueryPayload(searchParams)).toEqual(payload);
+    });
+
+    it('appends encrypted query to backend URL', () => {
+      const url = appendEncryptedQueryToUrl('http://localhost:3000/api/v1/menus', {
+        page: '2',
+        per_page: '20',
+      });
+
+      expect(url).toContain('request_data=');
+      expect(url.startsWith('http://localhost:3000/api/v1/menus?')).toBe(true);
+
+      const searchParams = new URL(url).searchParams;
+      expect(decryptQueryPayload(searchParams)).toEqual({ page: '2', per_page: '20' });
+    });
+
+    it('appends encrypted query to URL that already has plain params', () => {
+      const url = appendEncryptedQueryToUrl('http://localhost:3000/api/v1/permissions?role_id=2', {});
+
+      expect(url).toContain('role_id=2');
+      expect(url).toContain('request_data=');
+
+      const parsed = new URL(url);
+      expect(parsed.searchParams.get('role_id')).toBe('2');
+      expect(parsed.searchParams.get('request_data')).toBeTruthy();
     });
   });
 });

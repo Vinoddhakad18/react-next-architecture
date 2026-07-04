@@ -3,7 +3,16 @@
  * Handles RBAC permission API calls
  */
 
-import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { API_ENDPOINTS } from '@/lib/api';
+import {
+  encryptedGet,
+  encryptedPut,
+} from '@/lib/api/encryptedClientApi';
+import {
+  PERMISSION_REQUEST_DATA_PAYLOAD,
+  buildPermissionExportEncryptedQueryClient,
+  buildPermissionListQueryString,
+} from '@/lib/api/permissionEncryptedQuery';
 import { downloadEntityExport } from '@/lib/api/entityActions';
 import type { RbacPermissionsResponse, SaveRbacPermissionsRequest } from '@/types/api/permission';
 
@@ -66,32 +75,39 @@ export function unwrapRbacPermissionsPayload(raw: unknown): RbacPermissionsRespo
 
 export const permissionService = {
   async getPermissions(roleId: number) {
-    return apiClient.get<RbacPermissionsResponse>(
-      `${API_ENDPOINTS.PERMISSIONS.LIST}?role_id=${roleId}`,
-      { auth: true }
+    const response = await encryptedGet<RbacPermissionsResponse>(
+      `${API_ENDPOINTS.PERMISSIONS.LIST}${buildPermissionListQueryString(roleId)}`,
+      { queryParams: PERMISSION_REQUEST_DATA_PAYLOAD }
     );
+
+    if (response.success && response.data) {
+      const unwrapped = unwrapRbacPermissionsPayload(response.data);
+      if (unwrapped) {
+        return { ...response, data: unwrapped };
+      }
+    }
+
+    return response;
   },
 
   async savePermissions(payload: SaveRbacPermissionsRequest) {
-    return apiClient.put<{ success: boolean; message: string; data?: RbacPermissionsResponse }>(
+    return encryptedPut<{ success: boolean; message: string; data?: RbacPermissionsResponse }>(
       API_ENDPOINTS.PERMISSIONS.LIST,
-      payload,
-      { auth: true }
+      payload
     );
   },
 
   async exportPermissions(params: PermissionExportParams) {
-    const queryParams: Record<string, string> = {
-      role_id: params.roleId.toString(),
-      sort_by: params.sortBy ?? 'menu_id',
-      sort_order: params.sortOrder ?? 'ASC',
-    };
+    const exportUrl = `${API_ENDPOINTS.PERMISSIONS.EXPORT}${buildPermissionExportEncryptedQueryClient({
+      roleId: params.roleId,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+    })}`;
 
     return downloadEntityExport(
-      API_ENDPOINTS.PERMISSIONS.EXPORT,
+      exportUrl,
       `rbac-permissions-role-${params.roleId}.xlsx`,
       {
-        queryParams,
         accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       }
     );

@@ -1,14 +1,16 @@
 /**
- * Encrypted backend proxy for public endpoints (e.g. login) that require
+ * Encrypted backend proxy for API calls that require
  * x-api-token header and request_data / response_data wrapping.
  */
 
 import { getBackendApiKey } from './backendConfig';
 import {
+  appendEncryptedQueryToUrl,
   buildEncryptedRequestBody,
   CUSTOM_REQUEST_DATA_FIELD,
   decryptBackendResponse,
   encryptCustomToken,
+  isEncryptedQueryParams,
   isEncryptedRequestBody,
   type DecryptedBackendResponse,
 } from './customEncrypt';
@@ -19,6 +21,14 @@ export interface EncryptedBackendFetchOptions {
   body?: unknown;
   /** Pre-encrypted body, e.g. { request_data: "..." }. Sent as-is. */
   encryptedBody?: Record<string, string>;
+  /** Plain query params — encrypted into ?request_data= for GET requests. */
+  queryParams?: unknown;
+  /** Pre-encrypted query, e.g. ?request_data=... */
+  encryptedQuery?: string;
+  /** Bearer token for authenticated backend routes. */
+  authToken?: string;
+  /** Adds Cache-Control/Pragma no-cache headers. */
+  noCache?: boolean;
 }
 
 export interface EncryptedBackendFetchResult {
@@ -51,20 +61,66 @@ function resolveRequestBody(
   return undefined;
 }
 
+function resolveRequestUrl(
+  url: string,
+  method: string,
+  queryParams?: unknown,
+  encryptedQuery?: string
+): string {
+  if (encryptedQuery) {
+    return encryptedQuery.startsWith('?')
+      ? `${url.split('?')[0]}${encryptedQuery}`
+      : `${url}${encryptedQuery}`;
+  }
+
+  if (method === 'GET' && queryParams !== undefined) {
+    if (isEncryptedRequestBody(queryParams)) {
+      const token = queryParams[CUSTOM_REQUEST_DATA_FIELD].trim();
+      const separator = url.includes('?') ? '&' : '?';
+      return `${url}${separator}${CUSTOM_REQUEST_DATA_FIELD}=${encodeURIComponent(token)}`;
+    }
+
+    return appendEncryptedQueryToUrl(url, queryParams);
+  }
+
+  return url;
+}
+
 export async function encryptedBackendFetch(
   url: string,
-  { method = 'POST', body, encryptedBody }: EncryptedBackendFetchOptions = {}
+  {
+    method = 'POST',
+    body,
+    encryptedBody,
+    queryParams,
+    encryptedQuery,
+    authToken,
+    noCache = false,
+  }: EncryptedBackendFetchOptions = {}
 ): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
     'X-API-Key': getBackendApiKey(),
     'x-api-token': createApiToken(),
   };
 
-  const requestBody = resolveRequestBody(body, encryptedBody);
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
 
-  return fetch(url, {
+  if (noCache) {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    headers.Pragma = 'no-cache';
+  }
+
+  const requestBody = resolveRequestBody(body, encryptedBody);
+  const requestUrl = resolveRequestUrl(url, method, queryParams, encryptedQuery);
+
+  if (requestBody !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return fetch(requestUrl, {
     method,
     headers,
     body: requestBody !== undefined ? JSON.stringify(requestBody) : undefined,
@@ -109,3 +165,5 @@ export async function encryptedBackendFetchJson(
     raw,
   };
 }
+
+export { isEncryptedQueryParams };

@@ -110,3 +110,37 @@ export function buildEncryptedRequestBody(chars: string, payload: unknown): Reco
     [CUSTOM_REQUEST_DATA_FIELD]: encryptCustomPayload(chars, payload),
   };
 }
+
+export function buildEncryptedQueryString(chars: string, payload: unknown): string {
+  const encrypted = encryptCustomPayload(chars, payload);
+  return `?${CUSTOM_REQUEST_DATA_FIELD}=${encodeURIComponent(encrypted)}`;
+}
+
+export function appendEncryptedQueryToUrl(
+  chars: string,
+  url: string,
+  payload: unknown
+): string {
+  const encrypted = encryptCustomPayload(chars, payload);
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}${CUSTOM_REQUEST_DATA_FIELD}=${encodeURIComponent(encrypted)}`;
+}
+
+export function decryptQueryPayload(
+  chars: string,
+  searchParams: URLSearchParams
+): unknown | null {
+  const encrypted = searchParams.get(CUSTOM_REQUEST_DATA_FIELD);
+  if (!encrypted?.trim()) {
+    return null;
+  }
+
+  return decryptCustomPayload(chars, encrypted.trim());
+}
+
+export function isEncryptedQueryParams(
+  searchParams: URLSearchParams
+): boolean {
+  const encrypted = searchParams.get(CUSTOM_REQUEST_DATA_FIELD);
+  return typeof encrypted === 'string' && encrypted.trim().length > 0;
+}

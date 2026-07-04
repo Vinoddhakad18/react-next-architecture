@@ -59,3 +59,9 @@ const sessionStorageMock = {
   clear: jest.fn(),
 };
 global.sessionStorage = sessionStorageMock;
+
+// Encrypt/decrypt test keys (required after ENCRYPT_DECRYPT_KEY became mandatory)
+process.env.ENCRYPT_DECRYPT_KEY =
+  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+process.env.NEXT_PUBLIC_ENCRYPT_DECRYPT_KEY =
+  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
