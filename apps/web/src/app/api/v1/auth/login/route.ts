@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { BACKEND_API_URL } from '@/lib/api/backendConfig';
-import { backendFetch } from '@/lib/api/backendProxy';
+import { CUSTOM_RESPONSE_DATA_FIELD } from '@/lib/api/customEncrypt';
+import { encryptedBackendFetchJson } from '@/lib/api/encryptedBackendProxy';
 import {
   cookieMaxAgeSeconds,
   normalizeAuthTokens,
 } from '@/lib/auth/normalizeAuthTokens';
 
 const secureCookie = process.env.NODE_ENV === 'production';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 function applyAuthCookies(response: NextResponse, tokens: ReturnType<typeof normalizeAuthTokens>) {
   if (!tokens) return;
@@ -33,15 +38,40 @@ function applyAuthCookies(response: NextResponse, tokens: ReturnType<typeof norm
   }
 }
 
+function buildClientLoginResponse(
+  success: boolean,
+  message: string,
+  raw: unknown,
+  tokens?: ReturnType<typeof normalizeAuthTokens>
+): Record<string, unknown> {
+  if (
+    isRecord(raw) &&
+    typeof raw[CUSTOM_RESPONSE_DATA_FIELD] === 'string' &&
+    raw[CUSTOM_RESPONSE_DATA_FIELD].trim()
+  ) {
+    return {
+      success,
+      message,
+      [CUSTOM_RESPONSE_DATA_FIELD]: raw[CUSTOM_RESPONSE_DATA_FIELD],
+    };
+  }
+
+  return {
+    success,
+    message,
+    data: tokens,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
 
     const backendUrl = `${BACKEND_API_URL}/api/v1/auth/login`;
 
-    let response: Response;
+    let result: Awaited<ReturnType<typeof encryptedBackendFetchJson>>;
     try {
-      response = await backendFetch(backendUrl, {
+      result = await encryptedBackendFetchJson(backendUrl, {
         method: 'POST',
         body,
       });
@@ -57,39 +87,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const responseText = await response.text();
-    let data: unknown = {};
-    try {
-      data = responseText ? JSON.parse(responseText) : {};
-    } catch {
-      data = { message: responseText || 'Login failed' };
-    }
+    const { ok, status, decrypted, raw } = result;
+    const tokens = normalizeAuthTokens(decrypted.data);
+    const message = decrypted.message ?? (ok ? 'Login successful' : 'Login failed');
 
-    const tokens = normalizeAuthTokens(
-      isRecord(data) && isRecord(data.data) ? data.data : data
-    );
-
-    if (!response.ok || !tokens) {
-      const message =
-        isRecord(data) && typeof data.message === 'string'
-          ? data.message
-          : 'Login failed';
-
+    if (!ok || !tokens) {
       return NextResponse.json(
-        { success: false, message, error: data },
-        { status: response.ok ? 502 : response.status }
+        buildClientLoginResponse(false, message, raw),
+        { status: ok ? 502 : status }
       );
     }
 
     const nextResponse = NextResponse.json(
-      {
-        success: true,
-        message:
-          isRecord(data) && typeof data.message === 'string'
-            ? data.message
-            : 'Login successful',
-        data: tokens,
-      },
+      buildClientLoginResponse(true, message, raw, tokens),
       { status: 200 }
     );
 
@@ -106,8 +116,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

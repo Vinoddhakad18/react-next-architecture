@@ -25,3 +25,22 @@ export function getBackendApiKey(): string {
 
   return key;
 }
+
+const DEFAULT_ENCRYPT_DECRYPT_KEY =
+  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+/**
+ * Base62 alphabet used by custom encrypt/decrypt token encoding.
+ * Must match the backend ENCRYPT_DECRYPT_KEY value.
+ */
+export function getEncryptDecryptKey(): string {
+  const key = process.env.ENCRYPT_DECRYPT_KEY ?? DEFAULT_ENCRYPT_DECRYPT_KEY;
+
+  if (key.length !== 62) {
+    throw new Error(
+      'ENCRYPT_DECRYPT_KEY must be exactly 62 characters (base62 alphabet).'
+    );
+  }
+
+  return key;
+}

@@ -4,6 +4,7 @@
  */
 
 import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { buildEncryptedLoginBody, unwrapAuthApiResponse } from '@/lib/api/customEncryptClient';
 import { tokenManager } from '@/lib/auth/TokenManager';
 import { extractAuthTokensFromApiResponse } from '@/lib/auth/normalizeAuthTokens';
 import type {
@@ -32,11 +33,12 @@ export const authService = {
   async login(credentials: LoginRequest) {
     const response = await apiClient.post<
       { success: boolean; message: string; data: unknown },
-      LoginRequest
-    >(API_ENDPOINTS.AUTH.LOGIN, credentials);
+      ReturnType<typeof buildEncryptedLoginBody>
+    >(API_ENDPOINTS.AUTH.LOGIN, buildEncryptedLoginBody(credentials));
 
     if (response.success) {
-      const stored = storeTokensFromResponse(response.data);
+      const unwrapped = unwrapAuthApiResponse(response.data);
+      const stored = storeTokensFromResponse(unwrapped.data ?? response.data);
       if (!stored) {
         return {
           success: false as const,
