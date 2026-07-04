@@ -26,15 +26,20 @@ export function getBackendApiKey(): string {
   return key;
 }
 
-const DEFAULT_ENCRYPT_DECRYPT_KEY =
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-
 /**
  * Base62 alphabet used by custom encrypt/decrypt token encoding.
  * Must match the backend ENCRYPT_DECRYPT_KEY value.
+ * Throws if missing so misconfiguration fails fast.
  */
 export function getEncryptDecryptKey(): string {
-  const key = process.env.ENCRYPT_DECRYPT_KEY ?? DEFAULT_ENCRYPT_DECRYPT_KEY;
+  const key = process.env.NEXT_PUBLIC_ENCRYPT_DECRYPT_KEY;
+
+  if (!key) {
+    throw new Error(
+      'ENCRYPT_DECRYPT_KEY environment variable is not set. Configure it to match ' +
+        'the backend base62 alphabet.'
+    );
+  }
 
   if (key.length !== 62) {
     throw new Error(
