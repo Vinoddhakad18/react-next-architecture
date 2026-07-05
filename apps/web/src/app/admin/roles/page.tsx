@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Role, RoleListParams } from '@/types/api';
 import { ActionButton, Button, Modal, Input, Checkbox, RowActions, ExportButton, EntityApprovalCell, EntityApprovalReviewModal, UserApprovalActionModal } from '@/components/ui';
-import { roleService, normalizeRole } from '@/services';
+import { roleService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
@@ -61,73 +61,16 @@ export default function RoleManagementPage() {
       const response = await roleService.getRoles(params);
 
       if (response.success && response.data) {
-        // Capture the per-action permissions the listing endpoint returns
-        // alongside the data (view/add/edit/delete/export/status/approval).
         setFromResponse(response.data);
 
-        // Typed as `any` because the runtime shape is probed defensively below.
-        const roleListResponse: any = response.data;
-        
-        let rolesArray: Role[] = [];
-        let paginationData = {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-        };
-
-        // Handle different response structures
-        if (roleListResponse && typeof roleListResponse === 'object') {
-          // Check for nested structure: response.data.data (array) and response.data.pagination
-          if (roleListResponse.data && typeof roleListResponse.data === 'object' && roleListResponse.data.data && Array.isArray(roleListResponse.data.data)) {
-            const backendData = roleListResponse.data;
-            
-            rolesArray = backendData.data.map((role: Record<string, unknown>) => normalizeRole(role));
-            
-            const pagination = backendData.pagination || backendData.meta || {};
-            paginationData = {
-              page: pagination.page || filters.page || 1,
-              limit: pagination.limit || filters.limit || 10,
-              total: pagination.total ?? rolesArray.length,
-              totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(rolesArray.length / (pagination.limit || filters.limit || 10)),
-            };
-          } else if (roleListResponse.success && roleListResponse.data && typeof roleListResponse.data === 'object') {
-            const backendData = roleListResponse.data;
-            
-            if (backendData.data && Array.isArray(backendData.data)) {
-              rolesArray = backendData.data.map((role: Record<string, unknown>) => normalizeRole(role));
-              
-              const pagination = backendData.pagination || backendData.meta || {};
-              paginationData = {
-                page: pagination.page || filters.page || 1,
-                limit: pagination.limit || filters.limit || 10,
-                total: pagination.total ?? rolesArray.length,
-                totalPages: pagination.totalPages || pagination.total_pages || Math.ceil(rolesArray.length / (pagination.limit || filters.limit || 10)),
-              };
-            }
-          }
-        } else if (Array.isArray(roleListResponse)) {
-          rolesArray = roleListResponse.map((role: Record<string, unknown>) => normalizeRole(role));
-          paginationData = {
-            page: filters.page || 1,
-            limit: filters.limit || 10,
-            total: rolesArray.length,
-            totalPages: Math.ceil(rolesArray.length / (filters.limit || 10)),
-          };
-        } else if (roleListResponse && typeof roleListResponse === 'object' && roleListResponse.data) {
-          if (Array.isArray(roleListResponse.data)) {
-            rolesArray = roleListResponse.data.map((role: Record<string, unknown>) => normalizeRole(role));
-            paginationData = {
-              page: roleListResponse.meta?.page || filters.page || 1,
-              limit: roleListResponse.meta?.limit || filters.limit || 10,
-              total: roleListResponse.meta?.total ?? rolesArray.length,
-              totalPages: roleListResponse.meta?.totalPages ?? Math.ceil(rolesArray.length / (roleListResponse.meta?.limit || filters.limit || 10)),
-            };
-          }
-        }
-
-        setRoles(rolesArray);
-        setPagination(paginationData);
+        const list = response.data;
+        setRoles(Array.isArray(list.data) ? list.data : []);
+        setPagination({
+          page: list.meta?.page ?? filters.page ?? 1,
+          limit: list.meta?.limit ?? filters.limit ?? 10,
+          total: list.meta?.total ?? 0,
+          totalPages: list.meta?.totalPages ?? 0,
+        });
       } else {
         setError(response.error?.message || 'Failed to fetch roles');
         setRoles([]);

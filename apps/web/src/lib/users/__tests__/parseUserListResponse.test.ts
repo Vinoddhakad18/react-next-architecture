@@ -79,7 +79,7 @@ describe('parseUserListResponse', () => {
     expect(pendingUser.approval?.requestId).toBe(2);
     expect(pendingUser.approval?.requestNo).toBe('APR-2026-000002');
     expect(pendingUser.approvalStatus).toBe('pending');
-    expect(pendingUser.status).toBe('ACTIVE');
+    expect(pendingUser.status).toBe('active');
 
     const approvedUser = result.data[1];
     expect(approvedUser.approval?.hasPending).toBe(false);

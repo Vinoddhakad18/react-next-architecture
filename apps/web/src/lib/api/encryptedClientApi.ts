@@ -10,6 +10,7 @@ import {
   unwrapApiResponse,
 } from './customEncryptClient';
 import type { ApiError, ApiResponse } from '@/types/api';
+import { extractPagePermissions } from './permissions';
 
 interface EncryptedCallOptions {
   auth?: boolean;
@@ -28,6 +29,32 @@ function buildEncryptedGetUrl(endpoint: string, queryParams?: unknown): string {
   return appendEncryptedQueryToUrl(endpoint, queryParams);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function mergeOuterPermissions(payload: unknown, outer: unknown): unknown {
+  if (!isRecord(payload) || !isRecord(outer)) {
+    return payload;
+  }
+
+  if (isRecord(outer.permissions) && !isRecord(payload.permissions)) {
+    return { ...payload, permissions: outer.permissions };
+  }
+
+  const outerPermissions = extractPagePermissions(outer);
+  const payloadPermissions = extractPagePermissions(payload);
+  if (
+    payloadPermissions.view === false &&
+    payloadPermissions.add === false &&
+    outerPermissions.view !== false
+  ) {
+    return { ...payload, permissions: outerPermissions };
+  }
+
+  return payload;
+}
+
 async function unwrapResponse<T>(response: ApiResponse<T>): Promise<ApiResponse<T>> {
   if (!response.success || response.data === null || response.data === undefined) {
     return response;
@@ -35,10 +62,12 @@ async function unwrapResponse<T>(response: ApiResponse<T>): Promise<ApiResponse<
 
   const unwrapped = unwrapApiResponse(response.data);
 
-  const payload =
+  let payload: unknown =
     unwrapped.permissions !== undefined
       ? { data: unwrapped.data, permissions: unwrapped.permissions }
       : (unwrapped.data ?? response.data);
+
+  payload = mergeOuterPermissions(payload, response.data);
 
   return {
     ...response,

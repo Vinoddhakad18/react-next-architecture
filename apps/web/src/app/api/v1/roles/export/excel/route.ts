@@ -1,17 +1,11 @@
 /**
  * Role Export Excel API Route
- * Proxies Excel export download to the backend API.
+ * Proxies Excel export with encrypted query params.
  */
 
 import { NextRequest } from 'next/server';
-import { proxyEntityExcelExport } from '@/lib/api/exportProxy';
+import { proxyRoleExcelExport } from '@/lib/api/roleEncryptedProxy';
 
 export async function GET(request: NextRequest) {
-  return proxyEntityExcelExport(request, {
-    entityPath: 'roles',
-    defaultFilename: 'roles-export.xlsx',
-    defaultSortBy: 'id',
-    failureMessage: 'Failed to export roles',
-    logPrefix: 'Role',
-  });
+  return proxyRoleExcelExport(request);
 }

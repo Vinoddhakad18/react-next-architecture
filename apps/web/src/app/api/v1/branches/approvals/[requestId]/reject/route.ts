@@ -1,10 +1,16 @@
 import { NextRequest } from 'next/server';
 
-import { proxyModuleApprovalAction } from '@/lib/api/approvalProxy';
+import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
+import { proxyBranchApprovalAction } from '@/lib/api/branchEncryptedProxy';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { requestId: string } }
 ) {
-  return proxyModuleApprovalAction(request, 'branches', params.requestId, 'reject');
+  const csrfValidation = await validateCsrfFromRequest(request);
+  if (!csrfValidation.isValid) {
+    return createCsrfErrorResponse();
+  }
+
+  return proxyBranchApprovalAction(request, params.requestId, 'reject');
 }

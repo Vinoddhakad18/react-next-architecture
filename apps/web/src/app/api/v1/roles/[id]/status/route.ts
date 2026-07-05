@@ -1,12 +1,12 @@
 /**
- * Branch Status API Route
- * Proxies status toggle to the backend API with encrypted communication.
+ * Role Status API Route
+ * Proxies status toggle with encrypted backend communication.
  */
 
 import { NextRequest } from 'next/server';
 
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
-import { proxyBranchStatus } from '@/lib/api/branchEncryptedProxy';
+import { proxyRoleStatus } from '@/lib/api/roleEncryptedProxy';
 
 export async function PATCH(
   request: NextRequest,
@@ -18,9 +18,9 @@ export async function PATCH(
   }
 
   try {
-    return await proxyBranchStatus(request, params.id);
+    return await proxyRoleStatus(request, params.id);
   } catch (error) {
-    console.error('[Branch Status API] Error:', error);
+    console.error('[Role Status API] Error:', error);
     return Response.json(
       {
         success: false,

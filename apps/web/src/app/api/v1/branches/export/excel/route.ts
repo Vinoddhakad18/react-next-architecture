@@ -1,17 +1,11 @@
 /**
  * Branch Export Excel API Route
- * Proxies Excel export download to the backend API.
+ * Proxies Excel export download to the backend API with encrypted query params.
  */
 
 import { NextRequest } from 'next/server';
-import { proxyEntityExcelExport } from '@/lib/api/exportProxy';
+import { proxyBranchExcelExport } from '@/lib/api/branchEncryptedProxy';
 
 export async function GET(request: NextRequest) {
-  return proxyEntityExcelExport(request, {
-    entityPath: 'branches',
-    defaultFilename: 'branches-export.xlsx',
-    defaultSortBy: 'branch_name',
-    failureMessage: 'Failed to export branches',
-    logPrefix: 'Branch',
-  });
+  return proxyBranchExcelExport(request);
 }

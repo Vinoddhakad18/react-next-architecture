@@ -1,23 +1,23 @@
 import { userService } from '../user.service';
-import { apiClient } from '@/lib/api';
+import { encryptedPost } from '@/lib/api/encryptedClientApi';
 
-jest.mock('@/lib/api', () => ({
-  apiClient: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() },
-  API_ENDPOINTS: {
-    USERS: {
-      LIST: '/api/v1/users',
-      CREATE: '/api/v1/users',
-      UPDATE: (id: string) => `/api/v1/users/${id}`,
-      DELETE: (id: string) => `/api/v1/users/${id}`,
-    },
-  },
+jest.mock('@/lib/api/encryptedClientApi', () => ({
+  encryptedPost: jest.fn(),
+  encryptedGet: jest.fn(),
+  encryptedPut: jest.fn(),
+  encryptedPatch: jest.fn(),
+  encryptedDelete: jest.fn(),
 }));
 
 describe('userService.createUser', () => {
   afterEach(() => jest.resetAllMocks());
 
-  it('POSTs the create payload to the users endpoint with auth', async () => {
-    (apiClient.post as jest.Mock).mockResolvedValue({ success: true, data: { id: '1' }, error: null });
+  it('POSTs snake_case payload via encryptedPost', async () => {
+    (encryptedPost as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: '1', name: 'Alice Smith', email: 'alice@example.com', status: 'active' },
+      error: null,
+    });
 
     const payload = {
       name: 'Alice Smith',
@@ -30,6 +30,13 @@ describe('userService.createUser', () => {
 
     await userService.createUser(payload);
 
-    expect(apiClient.post).toHaveBeenCalledWith('/api/v1/users', payload, { auth: true });
+    expect(encryptedPost).toHaveBeenCalledWith('/api/v1/users', {
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      password: 'secret123',
+      mobile: '+1234567890',
+      role_id: 1,
+      branch_ids: [1, 2, 3],
+    });
   });
 });

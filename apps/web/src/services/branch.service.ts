@@ -1,65 +1,97 @@
 /**
  * Branch Service
- * Handles branch-related API calls
+ * Handles branch-related API calls with encrypted request/response.
  */
 
-import { apiClient, API_ENDPOINTS, listQueryInputToQueryString } from '@/lib/api';
-import { encryptedGet } from '@/lib/api/encryptedClientApi';
-import { buildExportQueryPayload } from '@/lib/api/listQueryParams';
-import { postApprovalApprove, postApprovalReject } from '@/lib/api/approvalRequests';
-import { toggleEntityStatus, downloadEntityExport } from '@/lib/api/entityActions';
-import { resolveApprovalStatus } from '@/lib/approval';
-import { normalizeApprovalObject, resolveEntityApprovalStatus } from '@/lib/approval/entityApproval';
-import { pickField, toBooleanFlag } from '@/lib/api/fieldAccess';
+import { API_ENDPOINTS } from '@/lib/api';
+import {
+  buildBranchExportEncryptedQueryClient,
+  buildBranchListQueryPayload,
+} from '@/lib/api/branchEncryptedQuery';
+import {
+  encryptedDelete,
+  encryptedGet,
+  encryptedPatch,
+  encryptedPost,
+  encryptedPut,
+} from '@/lib/api/encryptedClientApi';
+import { downloadEntityExport } from '@/lib/api/entityActions';
+import { normalizeBranch } from '@/lib/branches/normalizeBranch';
+import { extractPagePermissions } from '@/lib/api/permissions';
 import type { ApiResponse, PagePermissions } from '@/types/api';
 import type { Branch, BranchListParams, BranchListResponse, BranchTreeNode, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
 import { extractBranchTreePayload } from '@/lib/utils/normalizeBranchTree';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeBranchListPayload(
+  payload: unknown,
+  page = 1,
+  limit = 10
+): BranchListResponse & { permissions?: PagePermissions } {
+  let backendData: unknown = payload;
+
+  if (isRecord(payload) && isRecord(payload.data)) {
+    backendData = payload.data;
+  }
+
+  const branchItems = isRecord(backendData)
+    ? (backendData.data ?? backendData.branches ?? [])
+    : backendData;
+
+  const normalizedBranches = (Array.isArray(branchItems) ? branchItems : []).map((branch) =>
+    normalizeBranch(branch as Record<string, unknown>)
+  );
+
+  const paginationSource = isRecord(backendData) ? backendData.pagination ?? backendData.meta : null;
+  const pagination = isRecord(paginationSource)
+    ? paginationSource
+    : {
+        total: normalizedBranches.length,
+        page,
+        limit,
+        totalPages: 1,
+      };
+
+  const permissions = isRecord(payload) ? extractPagePermissions(payload) : undefined;
+
+  return withListPermissions(
+    {
+      data: normalizedBranches,
+      meta: {
+        total: Number(
+          pagination.total_records ?? pagination.total ?? normalizedBranches.length
+        ),
+        page: Number(pagination.page ?? page),
+        limit: Number(pagination.per_page ?? pagination.limit ?? limit),
+        totalPages: Number(pagination.total_pages ?? pagination.totalPages ?? 1),
+      },
+    },
+    permissions
+  );
+}
+
 export const branchService = {
   async getBranches(params?: BranchListParams) {
-    const queryString = listQueryInputToQueryString(params);
-    const response = await encryptedGet<{ success: boolean; message: string; data: { data: any[]; pagination?: any; meta?: any }; permissions?: PagePermissions }>(
+    const response = await encryptedGet<BranchListResponse & { permissions?: PagePermissions }>(
       API_ENDPOINTS.BRANCHES.LIST,
-      { queryParams: queryString || undefined }
+      { queryParams: buildBranchListQueryPayload(params) || undefined }
     );
 
-    if (!response.success || !response.data) {
-      return response as unknown as ApiResponse<BranchListResponse>;
+    if (response.success && response.data) {
+      return {
+        ...response,
+        data: normalizeBranchListPayload(
+          response.data,
+          params?.page ?? 1,
+          params?.limit ?? 10
+        ),
+      };
     }
 
-    const payload = response.data;
-    const branchItems = Array.isArray(payload.data?.data) ? payload.data.data : [];
-    const normalizedBranches = branchItems.map((branch: Record<string, unknown>) => normalizeBranch(branch));
-
-    const pagination = payload.data?.pagination || payload.data?.meta || {
-      total: normalizedBranches.length,
-      page: params?.page || 1,
-      limit: params?.limit || 10,
-      totalPages: Math.ceil(normalizedBranches.length / (params?.limit || 10)),
-    };
-
-    const perPage =
-      (pagination.per_page ?? pagination.limit ?? params?.limit) || 10;
-
-    return {
-      success: true,
-      error: null,
-      data: {
-        data: normalizedBranches,
-        meta: {
-          total: pagination.total ?? pagination.total_records ?? normalizedBranches.length,
-          page: pagination.page || params?.page || 1,
-          limit: perPage,
-          totalPages:
-            (pagination.total_pages ?? pagination.totalPages) ||
-            Math.ceil(normalizedBranches.length / perPage),
-        },
-        // Preserve the per-action permissions the backend returns so the page's
-        // usePagePermissions/extractPagePermissions can read them. Without this,
-        // normalization would strip them and all branch actions stay hidden.
-        permissions: response.data.permissions,
-      },
-    };
+    return response;
   },
 
   async getBranchTree(activeOnly = true) {
@@ -79,25 +111,34 @@ export const branchService = {
   },
 
   async createBranch(branch: CreateBranchRequest) {
-    return apiClient.post<Branch, CreateBranchRequest>(
+    const response = await encryptedPost<Branch, CreateBranchRequest>(
       API_ENDPOINTS.BRANCHES.CREATE,
-      branch,
-      { auth: true }
+      branch
     );
+
+    if (response.success && isRecord(response.data)) {
+      return { ...response, data: normalizeBranch(response.data) };
+    }
+
+    return response;
   },
 
   async updateBranch(id: number, branch: UpdateBranchRequest) {
-    return apiClient.put<Branch, UpdateBranchRequest>(
+    const response = await encryptedPut<Branch, UpdateBranchRequest>(
       API_ENDPOINTS.BRANCHES.UPDATE(id),
-      branch,
-      { auth: true }
+      branch
     );
+
+    if (response.success && isRecord(response.data)) {
+      return { ...response, data: normalizeBranch(response.data) };
+    }
+
+    return response;
   },
 
   async softDeleteBranch(id: number) {
-    return apiClient.delete<{ success: boolean; message?: string }>(
-      API_ENDPOINTS.BRANCHES.SOFT_DELETE(id),
-      { auth: true }
+    return encryptedDelete<{ success: boolean; message?: string }>(
+      API_ENDPOINTS.BRANCHES.SOFT_DELETE(id)
     );
   },
 
@@ -106,48 +147,47 @@ export const branchService = {
   },
 
   async approveBranchRequest(requestId: number, comment: string) {
-    return postApprovalApprove(API_ENDPOINTS.BRANCHES.APPROVAL_APPROVE(requestId), comment);
+    const response = await encryptedPost<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.BRANCHES.APPROVAL_APPROVE(requestId),
+      { comment: comment.trim() }
+    );
+    return { success: response.success, error: response.error };
   },
 
   async rejectBranchRequest(requestId: number, reason: string) {
-    return postApprovalReject(API_ENDPOINTS.BRANCHES.APPROVAL_REJECT(requestId), reason);
+    const response = await encryptedPost<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.BRANCHES.APPROVAL_REJECT(requestId),
+      { reason: reason.trim() }
+    );
+    return { success: response.success, error: response.error };
   },
 
   async toggleBranchStatus(id: number, active: boolean) {
-    return toggleEntityStatus(API_ENDPOINTS.BRANCHES.STATUS(id), active);
+    const response = await encryptedPatch<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.BRANCHES.STATUS(id),
+      { status: active ? 'active' : 'inactive' }
+    );
+    return { success: response.success, error: response.error };
   },
 
   async exportBranches(params?: Pick<BranchListParams, 'sortBy' | 'sortOrder' | 'search'>) {
-    return downloadEntityExport(API_ENDPOINTS.BRANCHES.EXPORT, 'branches-export.xlsx', {
-      queryParams: buildExportQueryPayload({
-        sortBy: params?.sortBy ?? 'branch_name',
-        sortOrder: params?.sortOrder,
-        search: params?.search,
-      }),
-      accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    const encryptedQuery = buildBranchExportEncryptedQueryClient({
+      sortBy: params?.sortBy ?? 'branch_name',
+      sortOrder: params?.sortOrder,
+      search: params?.search,
     });
+
+    return downloadEntityExport(
+      `${API_ENDPOINTS.BRANCHES.EXPORT}${encryptedQuery}`,
+      'branches-export.xlsx',
+      {
+        accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }
+    );
   },
 };
 
-export function normalizeBranch(branch: Record<string, unknown>): Branch {
-  const approval = normalizeApprovalObject(branch.approval);
-  return {
-    id: Number(branch.id),
-    branchName: String(branch.branch_name ?? branch.branchName ?? branch.name ?? ''),
-    branchCode: String(branch.branch_code ?? branch.branchCode ?? branch.code ?? ''),
-    address: String(branch.address ?? ''),
-    status: String(branch.status ?? ''),
-    approval,
-    isPendingCreate:
-      toBooleanFlag(pickField(branch, 'isPendingCreate', 'is_pending_create')),
-    approvalStatus: approval
-      ? resolveEntityApprovalStatus(approval)
-      : resolveApprovalStatus(
-          branch.approval_status ?? branch.approvalStatus,
-          branch.status
-        ),
-  };
-}
+export { normalizeBranch } from '@/lib/branches/normalizeBranch';
 
 export function withListPermissions<T extends Record<string, unknown>>(
   payload: T,

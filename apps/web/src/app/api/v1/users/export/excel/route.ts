@@ -1,17 +1,11 @@
 /**
  * User Export Excel API Route
- * Proxies Excel export download to the backend API.
+ * Proxies Excel export with encrypted query params.
  */
 
 import { NextRequest } from 'next/server';
-import { proxyEntityExcelExport } from '@/lib/api/exportProxy';
+import { proxyUserExcelExport } from '@/lib/api/userEncryptedProxy';
 
 export async function GET(request: NextRequest) {
-  return proxyEntityExcelExport(request, {
-    entityPath: 'users',
-    defaultFilename: 'users-export.xlsx',
-    defaultSortBy: 'name',
-    failureMessage: 'Failed to export users',
-    logPrefix: 'User',
-  });
+  return proxyUserExcelExport(request);
 }

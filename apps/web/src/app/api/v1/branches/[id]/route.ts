@@ -1,85 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
-import { BACKEND_API_URL } from '@/lib/api/backendConfig';
-import { backendFetch, resolveRouteAuthToken } from '@/lib/api/backendProxy';
-import { readErrorMessage, readJsonResponse } from '@/lib/api/parseResponse';
-import { proxyEntitySoftDelete } from '@/lib/api/softDeleteProxy';
+import { proxyBranchSoftDelete, proxyBranchUpdate } from '@/lib/api/branchEncryptedProxy';
 
-function normalizeBranch(branch: Record<string, unknown>) {
-  return {
-    id: branch.id,
-    branchName: branch.branch_name ?? branch.branchName ?? '',
-    branchCode: branch.branch_code ?? branch.branchCode ?? '',
-    address: branch.address ?? '',
-    status: branch.status ?? '',
-    createdAt: branch.createdAt || branch.created_at || new Date().toISOString(),
-    updatedAt: branch.updatedAt || branch.updated_at || new Date().toISOString(),
-  };
-}
-
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const csrfValidation = await validateCsrfFromRequest(request);
     if (!csrfValidation.isValid) {
       return createCsrfErrorResponse();
     }
 
-    const authToken = await resolveRouteAuthToken(request);
-    if (!authToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Unauthorized',
-          error: 'Authentication token is required',
-        },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const backendUrl = `${BACKEND_API_URL}/api/v1/branches/${params.id}`;
-
-    let response: Response;
-    try {
-      response = await backendFetch(backendUrl, {
-        method: 'PUT',
-        authToken,
-        body,
-      });
-    } catch (fetchError) {
-      console.error('[Branch Item API PUT] Fetch error:', fetchError);
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Failed to connect to backend API',
-          error: fetchError instanceof Error ? fetchError.message : 'Network error',
-        },
-        { status: 503 }
-      );
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json(
-        {
-          success: false,
-          message: readErrorMessage(errorText, 'Failed to update branch'),
-          error: errorText || 'Failed to update branch',
-        },
-        { status: response.status }
-      );
-    }
-
-    const data = await readJsonResponse(response);
-    const rawBranch =
-      data && typeof data === 'object' && 'data' in data
-        ? (data as { data: Record<string, unknown> }).data
-        : data;
-
-    return NextResponse.json(normalizeBranch(rawBranch as Record<string, unknown>), { status: 200 });
+    return await proxyBranchUpdate(request, params.id);
   } catch (error) {
     console.error('[Branch Item API PUT] Error:', error);
-    return NextResponse.json(
+    return Response.json(
       {
         success: false,
         message: 'Internal server error',
@@ -90,6 +27,26 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  return proxyEntitySoftDelete(request, 'branches', params.id, 'Branch');
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const csrfValidation = await validateCsrfFromRequest(request);
+    if (!csrfValidation.isValid) {
+      return createCsrfErrorResponse();
+    }
+
+    return await proxyBranchSoftDelete(request, params.id);
+  } catch (error) {
+    console.error('[Branch Soft Delete API] Error:', error);
+    return Response.json(
+      {
+        success: false,
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
+  }
 }

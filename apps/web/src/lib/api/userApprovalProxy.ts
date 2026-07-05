@@ -1,10 +1,10 @@
 /**
- * Proxy user approval actions — delegates to shared module proxy.
+ * Proxy user approval actions — delegates to encrypted user proxy.
  */
 
 import { NextRequest } from 'next/server';
 
-import { proxyModuleApprovalAction } from './approvalProxy';
+import { proxyUserApprovalAction as proxyEncryptedUserApprovalAction } from './userEncryptedProxy';
 
 type ApprovalAction = 'approve' | 'reject';
 
@@ -13,5 +13,5 @@ export async function proxyUserApprovalAction(
   requestId: string,
   action: ApprovalAction
 ) {
-  return proxyModuleApprovalAction(request, 'users', requestId, action);
+  return proxyEncryptedUserApprovalAction(request, requestId, action);
 }
