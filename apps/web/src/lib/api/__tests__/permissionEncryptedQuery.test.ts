@@ -91,6 +91,20 @@ describe('permissionEncryptedQuery', () => {
     expect(decryptServerQueryPayload(parsed.searchParams)).toEqual({});
   });
 
+  it('round-trips client encrypted query through BFF to backend plain role_id URL', () => {
+    const clientUrl = buildPermissionListEncryptedQueryClient(2);
+    const clientParams = new URLSearchParams(clientUrl.slice(1));
+    const { roleId } = readPermissionQueryFromRequest(clientParams);
+
+    expect(roleId).toBe(2);
+
+    const backendUrl = buildPermissionBackendGetUrl('http://localhost/api/v1/permissions', roleId!);
+    const backendParsed = new URL(backendUrl);
+
+    expect(backendParsed.searchParams.get('role_id')).toBe('2');
+    expect(decryptServerQueryPayload(backendParsed.searchParams)).toEqual({});
+  });
+
   it('uses empty object for backend request_data payload', () => {
     expect(PERMISSION_BACKEND_REQUEST_DATA_PAYLOAD).toEqual({});
   });
