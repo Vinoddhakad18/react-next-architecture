@@ -9,7 +9,7 @@ import { BACKEND_API_URL } from '@/lib/api/backendConfig';
 import { backendFetch } from '@/lib/api/backendProxy';
 import { validateCsrfFromRequest, createCsrfErrorResponse } from '@/lib/utils/validateCsrf';
 
-export type ApprovalModule = 'users' | 'roles' | 'menus' | 'branches';
+export type ApprovalModule = 'users' | 'roles' | 'menus' | 'branches' | 'categories';
 
 type ApprovalAction = 'approve' | 'reject';
 

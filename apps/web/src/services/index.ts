@@ -8,6 +8,7 @@ export type { CreateMenuRequest } from './menu.service';
 export { roleService, normalizeRole } from './role.service';
 export type { CreateRoleRequest } from './role.service';
 export { branchService } from './branch.service';
+export { categoryService, normalizeCategory } from './category.service';
 export { userService } from './user.service';
 export { permissionService, unwrapRbacPermissionsPayload } from './permission.service';
 export { normalizeUser } from '@/lib/utils/normalizeUser';

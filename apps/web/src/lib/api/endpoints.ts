@@ -74,6 +74,20 @@ export const API_ENDPOINTS = {
     EXPORT: '/api/v1/permissions/export/excel',
   },
 
+  // Categories
+  CATEGORIES: {
+    LIST: '/api/v1/categories',
+    ACTIVE_LIST: '/api/v1/categories/active/list',
+    CREATE: '/api/v1/categories',
+    GET: (id: number) => `/api/v1/categories/${id}`,
+    UPDATE: (id: number) => `/api/v1/categories/${id}`,
+    DELETE: (id: number) => `/api/v1/categories/${id}`,
+    APPROVAL_APPROVE: (requestId: number) => `/api/v1/categories/approvals/${requestId}/approve`,
+    APPROVAL_REJECT: (requestId: number) => `/api/v1/categories/approvals/${requestId}/reject`,
+    STATUS: (id: number) => `/api/v1/categories/${id}/status`,
+    EXPORT: '/api/v1/categories/export/excel',
+  },
+
   // Branches
   BRANCHES: {
     LIST: '/api/v1/branches',
