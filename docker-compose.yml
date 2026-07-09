@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+    image: react-next-web:dev
     container_name: nextjs-web
     restart: unless-stopped
     ports:
