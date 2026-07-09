@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect unauthenticated users from protected admin routes (except login page)
   if (!token && pathname.startsWith('/admin') && !isLoginPage) {
-    return NextResponse.redirect(new URL('/admin/login', request.url));
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Generate CSRF token if not present and user is authenticated

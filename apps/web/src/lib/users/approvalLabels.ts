@@ -25,6 +25,15 @@ export interface UserApprovalDisplay {
 
 /** Compact approval copy for the users table (avoids redundant “Pending Approval” + “UPDATE pending”). */
 export function getUserApprovalDisplay(approval?: UserApprovalInfo): UserApprovalDisplay {
+  if (approval?.hasRejected) {
+    const action = formatApprovalAction(approval.action);
+    return {
+      title: action ? `${action} rejected` : 'Rejected',
+      subtitle: approval.requestNo,
+      tone: 'rejected',
+    };
+  }
+
   if (!approval?.hasPending) {
     return { title: 'Approved', tone: 'approved' };
   }

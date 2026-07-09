@@ -7,6 +7,7 @@ import { menuService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
+import { canReviewApproval, getApprovalReviewButtonTitle } from '@/lib/approval/entityApproval';
 
 interface MenuFormData {
   name: string;
@@ -674,9 +675,9 @@ export default function MenuManagementPage() {
                           <button
                             type="button"
                             className="text-left disabled:cursor-default"
-                            title={menu.approval?.hasPending ? 'View requested changes' : undefined}
+                            title={getApprovalReviewButtonTitle(menu.approval)}
                             onClick={() => setReviewMenu(menu)}
-                            disabled={!menu.approval?.hasPending}
+                            disabled={!canReviewApproval(menu.approval)}
                           >
                             <EntityApprovalCell
                               approval={menu.approval}

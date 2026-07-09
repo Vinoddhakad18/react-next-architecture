@@ -3,12 +3,13 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User, UserListParams, UpdateUserRequest, CreateUserRequest } from '@/types/api/user';
 import type { BranchTreeNode } from '@/types/api/branch';
-import { Button, Input, Modal, Select, RowActions, BranchTreeSelect, ExportButton, UserApprovalCell, UserApprovalCompare, UserApprovalActionModal } from '@/components/ui';
+import { Button, Input, Modal, Select, RowActions, BranchTreeSelect, ExportButton, UserApprovalCell, EntityApprovalReviewModal, UserApprovalActionModal } from '@/components/ui';
 import { userService, roleService, branchService } from '@/services';
 import { createUserSchema, updateUserSchema } from '@/lib/validation/userSchemas';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
-import { formatApprovalAction, formatUserStatus } from '@/lib/users/approvalLabels';
+import { formatUserStatus } from '@/lib/users/approvalLabels';
+import { canReviewApproval, getApprovalReviewButtonTitle } from '@/lib/approval/entityApproval';
 import { getAccessTokenRole } from '@/lib/auth/getAccessTokenClaims';
 import {
   getUserRowActionAccess,
@@ -386,6 +387,7 @@ export default function UserManagementPage() {
                   const requestId = user.approval?.requestId;
                   const isActive = isUserStatusActive(user.status);
                   const rowAccess = getUserRowActionAccess(user, viewerIsSuperAdmin);
+                  const canReview = canReviewApproval(user.approval);
 
                   return (
                   <tr key={`${user.id}-${requestId ?? 'row'}`}>
@@ -401,9 +403,9 @@ export default function UserManagementPage() {
                       <button
                         type="button"
                         className="text-left disabled:cursor-default"
-                        title={user.approval?.hasPending ? 'View requested changes' : undefined}
+                        title={getApprovalReviewButtonTitle(user.approval)}
                         onClick={() => setReviewUser(user)}
-                        disabled={!user.approval?.hasPending}
+                        disabled={!canReview}
                       >
                         <UserApprovalCell user={user} />
                       </button>
@@ -601,75 +603,15 @@ export default function UserManagementPage() {
         </div>
       </Modal>
 
-      <Modal
+      <EntityApprovalReviewModal
         isOpen={Boolean(reviewUser)}
+        approval={reviewUser?.approval}
+        permissions={permissions}
+        emptyMessage="No pending approval for this user."
         onClose={() => setReviewUser(null)}
-        title={
-          reviewUser?.approval?.requestNo
-            ? `Review ${reviewUser.approval.requestNo}`
-            : 'Review changes'
-        }
-        size="lg"
-      >
-        {reviewUser?.approval?.hasPending ? (
-          <div className="space-y-4 text-sm">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-500">Request type</p>
-                <p className="text-slate-900">
-                  {formatApprovalAction(reviewUser.approval.action) ?? '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-500">Requested by</p>
-                <p className="text-slate-900">{reviewUser.approval.makerName ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-500">Submitted</p>
-                <p className="text-slate-900">
-                  {reviewUser.approval.submittedAt
-                    ? new Date(reviewUser.approval.submittedAt).toLocaleString()
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-500">Fields changed</p>
-                <p className="text-slate-900">
-                  {reviewUser.approval.changedFields?.length
-                    ? reviewUser.approval.changedFields.join(', ')
-                    : '—'}
-                </p>
-              </div>
-            </div>
-
-            <UserApprovalCompare
-              previousData={reviewUser.approval.previousData}
-              proposedData={reviewUser.approval.proposedData}
-              changedFields={reviewUser.approval.changedFields}
-            />
-
-            {reviewUser.approval.requestId && permissions.approval ? (
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
-                <Button
-                  variant="outline"
-                  className="border-rose-300 text-rose-700 hover:bg-rose-50"
-                  onClick={() => openApprovalAction(reviewUser.approval!.requestId!, 'reject')}
-                >
-                  Reject
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => openApprovalAction(reviewUser.approval!.requestId!, 'approve')}
-                >
-                  Approve
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-600">No pending approval for this user.</p>
-        )}
-      </Modal>
+        onApprove={(requestId) => openApprovalAction(requestId, 'approve')}
+        onReject={(requestId) => openApprovalAction(requestId, 'reject')}
+      />
 
       <UserApprovalActionModal
         isOpen={Boolean(approvalAction)}

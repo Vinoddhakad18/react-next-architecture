@@ -32,6 +32,21 @@ describe('approvalLabels', () => {
     });
   });
 
+  it('returns rejected copy when approval was rejected', () => {
+    expect(
+      getUserApprovalDisplay({
+        hasPending: false,
+        hasRejected: true,
+        requestNo: 'APR-2026-000019',
+        action: 'UPDATE',
+      })
+    ).toEqual({
+      title: 'Update rejected',
+      subtitle: 'APR-2026-000019',
+      tone: 'rejected',
+    });
+  });
+
   it('formats user status for display', () => {
     expect(formatUserStatus('ACTIVE')).toBe('Active');
     expect(formatUserStatus('')).toBe('—');

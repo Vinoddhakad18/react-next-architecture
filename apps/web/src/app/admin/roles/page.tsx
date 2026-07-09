@@ -7,6 +7,7 @@ import { roleService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
+import { canReviewApproval, getApprovalReviewButtonTitle } from '@/lib/approval/entityApproval';
 
 interface RoleFormData {
   name: string;
@@ -564,9 +565,9 @@ export default function RoleManagementPage() {
                           <button
                             type="button"
                             className="text-left disabled:cursor-default"
-                            title={role.approval?.hasPending ? 'View requested changes' : undefined}
+                            title={getApprovalReviewButtonTitle(role.approval)}
                             onClick={() => setReviewRole(role)}
-                            disabled={!role.approval?.hasPending}
+                            disabled={!canReviewApproval(role.approval)}
                           >
                             <EntityApprovalCell
                               approval={role.approval}

@@ -65,4 +65,32 @@ describe('normalizeUser', () => {
     expect(result.approval?.requestNo).toBe('APR-2026-000007');
     expect(result.approvalStatus).toBe('pending');
   });
+
+  it('maps rejected approval fields from snake_case backend payload', () => {
+    const result = normalizeUser({
+      id: 41,
+      name: 'Lokesh Dhakad',
+      email: 'lokesh@example.com',
+      approval: {
+        has_pending: false,
+        has_rejected: true,
+        request_id: 19,
+        request_no: 'APR-2026-000019',
+        action: 'UPDATE',
+        status: 'REJECTED',
+        rejection_reason: 'can not change',
+        action_by: {
+          user_id: 1,
+          name: 'Super User',
+          comment: 'can not change',
+          acted_at: '2026-07-09T07:30:22.895Z',
+        },
+      },
+    });
+
+    expect(result.approval?.hasRejected).toBe(true);
+    expect(result.approval?.rejectionReason).toBe('can not change');
+    expect(result.approval?.actionBy?.name).toBe('Super User');
+    expect(result.approvalStatus).toBe('rejected');
+  });
 });

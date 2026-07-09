@@ -5,13 +5,18 @@
 import type { ApprovalStatus } from './common';
 import type { PagePermissions } from './permission';
 
+import type { ApprovalActionBy } from './approval';
+
 /** Nested approval payload returned on each user in the list API. */
 export interface UserApprovalInfo {
   hasPending: boolean;
+  hasRejected?: boolean;
   requestId?: number;
   requestNo?: string;
   action?: string;
   status?: string;
+  rejectionReason?: string;
+  actionBy?: ApprovalActionBy;
   makerId?: number;
   makerName?: string;
   makerEmail?: string;

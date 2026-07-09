@@ -11,7 +11,7 @@ import {
   toBooleanFlag,
 } from '@/lib/api/fieldAccess';
 import type { ApprovalStatus } from '@/types/api';
-import type { EntityApprovalInfo } from '@/types/api/approval';
+import type { ApprovalActionBy, EntityApprovalInfo } from '@/types/api/approval';
 
 const ACTION_LABELS: Record<string, string> = {
   CREATE: 'New record',
@@ -23,21 +23,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function normalizeActionBy(raw: unknown): ApprovalActionBy | undefined {
+  if (!isRecord(raw)) {
+    return undefined;
+  }
+
+  return {
+    userId: pickNumber(raw, 'userId', 'user_id'),
+    name: pickString(raw, 'name'),
+    email: pickString(raw, 'email'),
+    action: pickString(raw, 'action'),
+    actedAt: pickString(raw, 'actedAt', 'acted_at'),
+    comment: pickString(raw, 'comment'),
+  };
+}
+
 export function normalizeApprovalObject(raw: unknown): EntityApprovalInfo | undefined {
   if (!isRecord(raw)) {
     return undefined;
   }
 
+  const status = String(pickString(raw, 'status') ?? '').toUpperCase();
   const hasPending =
-    toBooleanFlag(pickField(raw, 'hasPending', 'has_pending')) ||
-    String(pickString(raw, 'status') ?? '').toUpperCase() === 'PENDING';
+    toBooleanFlag(pickField(raw, 'hasPending', 'has_pending')) || status === 'PENDING';
+  const hasRejected =
+    toBooleanFlag(pickField(raw, 'hasRejected', 'has_rejected')) || status === 'REJECTED';
 
   return {
     hasPending,
+    hasRejected,
     requestId: pickNumber(raw, 'requestId', 'request_id'),
     requestNo: pickString(raw, 'requestNo', 'request_no'),
     action: pickString(raw, 'action'),
     status: pickString(raw, 'status'),
+    rejectionReason: pickString(raw, 'rejectionReason', 'rejection_reason'),
+    actionBy: normalizeActionBy(pickField(raw, 'actionBy', 'action_by')),
     makerId: pickNumber(raw, 'makerId', 'maker_id'),
     makerName: pickString(raw, 'makerName', 'maker_name'),
     makerEmail: pickString(raw, 'makerEmail', 'maker_email'),
@@ -54,6 +74,9 @@ export function resolveEntityApprovalStatus(approval?: EntityApprovalInfo): Appr
   }
   if (approval.hasPending) {
     return 'pending';
+  }
+  if (approval.hasRejected) {
+    return 'rejected';
   }
   const status = (approval.status ?? '').toUpperCase();
   if (status === 'PENDING') return 'pending';
@@ -75,6 +98,15 @@ export interface EntityApprovalDisplay {
 }
 
 export function getEntityApprovalDisplay(approval?: EntityApprovalInfo): EntityApprovalDisplay {
+  if (approval?.hasRejected) {
+    const action = formatApprovalAction(approval.action);
+    return {
+      title: action ? `${action} rejected` : 'Rejected',
+      subtitle: approval.requestNo,
+      tone: 'rejected',
+    };
+  }
+
   if (!approval?.hasPending) {
     return { title: 'Approved', tone: 'approved' };
   }
@@ -85,6 +117,22 @@ export function getEntityApprovalDisplay(approval?: EntityApprovalInfo): EntityA
     subtitle: approval.requestNo,
     tone: 'pending',
   };
+}
+
+/** Whether the approval cell should open the review modal. */
+export function canReviewApproval(approval?: EntityApprovalInfo): boolean {
+  return Boolean(approval?.hasPending || approval?.hasRejected);
+}
+
+/** Tooltip for the approval review button in list tables. */
+export function getApprovalReviewButtonTitle(approval?: EntityApprovalInfo): string | undefined {
+  if (approval?.hasPending) {
+    return 'View requested changes';
+  }
+  if (approval?.hasRejected) {
+    return 'View rejection details';
+  }
+  return undefined;
 }
 
 export function formatRecordStatus(status?: string): string {

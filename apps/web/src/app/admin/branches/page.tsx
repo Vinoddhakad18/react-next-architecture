@@ -7,6 +7,7 @@ import { branchService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
+import { canReviewApproval, getApprovalReviewButtonTitle } from '@/lib/approval/entityApproval';
 
 export default function BranchManagementPage() {
   const [filters, setFilters] = useState<BranchListParams>({
@@ -318,9 +319,9 @@ export default function BranchManagementPage() {
                       <button
                         type="button"
                         className="text-left disabled:cursor-default"
-                        title={branch.approval?.hasPending ? 'View requested changes' : undefined}
+                        title={getApprovalReviewButtonTitle(branch.approval)}
                         onClick={() => setReviewBranch(branch)}
-                        disabled={!branch.approval?.hasPending}
+                        disabled={!canReviewApproval(branch.approval)}
                       >
                         <EntityApprovalCell
                           approval={branch.approval}

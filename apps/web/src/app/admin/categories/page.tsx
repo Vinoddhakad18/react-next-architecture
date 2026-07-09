@@ -19,6 +19,7 @@ import { categoryService } from '@/services';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
 import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
+import { canReviewApproval, getApprovalReviewButtonTitle } from '@/lib/approval/entityApproval';
 
 interface CategoryFormData {
   name: string;
@@ -541,9 +542,9 @@ export default function CategoryManagementPage() {
                             <button
                               type="button"
                               className="text-left disabled:cursor-default"
-                              title={category.approval?.hasPending ? 'View requested changes' : undefined}
+                              title={getApprovalReviewButtonTitle(category.approval)}
                               onClick={() => setReviewCategory(category)}
-                              disabled={!category.approval?.hasPending}
+                              disabled={!canReviewApproval(category.approval)}
                             >
                               <EntityApprovalCell
                                 approval={category.approval}
