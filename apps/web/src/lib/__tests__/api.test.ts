@@ -17,7 +17,7 @@ describe('API Client', () => {
     const mockResponse = { success: true, data: { message: 'Success' } };
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const result = await apiClient.get('/test');
@@ -31,13 +31,13 @@ describe('API Client', () => {
     expect(result.success).toBe(true);
   });
 
-  it('should make a POST request with data', async () => {
+  it('should make a POST request with snake_case data', async () => {
     const mockResponse = { success: true, data: { id: 1 } };
-    const postData = { name: 'Test' };
+    const postData = { roleId: 2, branchIds: [1] };
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse,
+      text: async () => JSON.stringify(mockResponse),
     });
 
     const result = await apiClient.post('/test', postData);
@@ -46,7 +46,7 @@ describe('API Client', () => {
       expect.stringContaining('/test'),
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify(postData),
+        body: JSON.stringify({ role_id: 2, branch_ids: [1] }),
       })
     );
     expect(result.success).toBe(true);

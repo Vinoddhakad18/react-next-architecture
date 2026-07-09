@@ -3,11 +3,11 @@
  * Generates and provides CSRF tokens to clients
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { generateCsrfToken, generateCsrfSecret, hashToken } from '@/lib/utils/csrf';
 import { cookies } from 'next/headers';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Generate a new CSRF token and secret
     const token = generateCsrfToken();

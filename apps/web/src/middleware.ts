@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow access to login page without authentication
-  const isLoginPage = pathname === '/admin/login';
+  const isLoginPage = pathname === '/login';
 
   // Redirect authenticated users away from login page
   if (token && isLoginPage) {
@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect unauthenticated users from protected admin routes (except login page)
   if (!token && pathname.startsWith('/admin') && !isLoginPage) {
-    return NextResponse.redirect(new URL('/admin/login', request.url));
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Generate CSRF token if not present and user is authenticated

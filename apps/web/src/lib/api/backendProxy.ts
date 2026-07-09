@@ -1,0 +1,85 @@
+/**
+ * Backend proxy helper for server-side route handlers.
+ *
+ * Centralizes the auth-header construction (X-API-Key + Authorization) that was
+ * previously duplicated across every API route. Callers still build the URL and
+ * own their response normalization; this only standardizes the outgoing request.
+ */
+
+import { cookies } from 'next/headers';
+import type { NextRequest } from 'next/server';
+import { getBackendApiKey } from './backendConfig';
+import { toSnakeCaseKeys } from './snakeCase';
+
+/** Resolve bearer token from httpOnly cookie or Authorization header. */
+export async function resolveRouteAuthToken(request: NextRequest): Promise<string | undefined> {
+  const cookieStore = await cookies();
+  const fromCookie = cookieStore.get('authToken')?.value;
+  if (fromCookie) {
+    return fromCookie;
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice('Bearer '.length);
+  }
+
+  return undefined;
+}
+
+export interface BackendFetchOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Bearer token forwarded to the backend. */
+  authToken: string;
+  /** JSON request body. When provided, a `Content-Type: application/json` header is added. */
+  body?: unknown;
+  /** Adds `Cache-Control`/`Pragma` no-cache headers (used by read endpoints). */
+  noCache?: boolean;
+}
+
+export interface BackendBinaryFetchOptions {
+  authToken: string;
+  accept?: string;
+}
+
+export async function backendFetch(
+  url: string,
+  { method = 'GET', authToken, body, noCache = false }: BackendFetchOptions
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'X-API-Key': getBackendApiKey(),
+    Authorization: `Bearer ${authToken}`,
+  };
+
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (noCache) {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    headers['Pragma'] = 'no-cache';
+  }
+
+  return fetch(url, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(toSnakeCaseKeys(body)) : undefined,
+    cache: 'no-store',
+  });
+}
+
+export async function backendBinaryFetch(
+  url: string,
+  { authToken, accept = 'application/octet-stream' }: BackendBinaryFetchOptions
+): Promise<Response> {
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: accept,
+      'X-API-Key': getBackendApiKey(),
+      Authorization: `Bearer ${authToken}`,
+    },
+    cache: 'no-store',
+  });
+}

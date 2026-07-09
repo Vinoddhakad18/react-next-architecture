@@ -113,8 +113,7 @@ The API route uses the following environment variables:
 
 - `BACKEND_API_URL` - Backend API base URL (default: `http://localhost:3000`)
 - `NEXT_PUBLIC_API_URL` - Fallback API URL
-- `API_KEY` - API key for backend requests (default: provided in code)
-- `NEXT_PUBLIC_API_KEY` - Fallback API key
+- `API_KEY` - **Server-only** API key for backend requests. Required; the route handlers throw if it is unset (no hardcoded fallback). Never exposed to the browser.
 
 ### Authentication
 - Uses `authToken` cookie for authentication

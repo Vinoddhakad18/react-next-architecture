@@ -2,8 +2,12 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { Branch, BranchListParams, CreateBranchRequest, UpdateBranchRequest } from '@/types/api/branch';
-import { ActionButton, Button, Input, Modal, Select } from '@/components/ui';
+import { ActionButton, Button, Input, Modal, Select, RowActions, ExportButton, EntityApprovalCell, EntityApprovalReviewModal, UserApprovalActionModal } from '@/components/ui';
 import { branchService } from '@/services';
+import { usePagePermissions } from '@/hooks/usePagePermissions';
+import { useEntityWorkflow } from '@/hooks/useEntityWorkflow';
+import { useModuleApprovalUi } from '@/hooks/useApprovalActionFlow';
+import { canReviewApproval, getApprovalReviewButtonTitle } from '@/lib/approval/entityApproval';
 
 export default function BranchManagementPage() {
   const [filters, setFilters] = useState<BranchListParams>({
@@ -36,6 +40,7 @@ export default function BranchManagementPage() {
   const [editingBranchId, setEditingBranchId] = useState<number | null>(null);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { permissions, setFromResponse } = usePagePermissions();
 
   const fetchBranches = useCallback(async () => {
     setIsLoading(true);
@@ -49,6 +54,7 @@ export default function BranchManagementPage() {
 
       const response = await branchService.getBranches(params);
       if (response.success && response.data) {
+        setFromResponse(response.data);
         setBranches(response.data.data);
         setPagination(response.data.meta);
       } else {
@@ -63,7 +69,44 @@ export default function BranchManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, searchTerm]);
+  }, [filters, searchTerm, setFromResponse]);
+
+  const {
+    workflowLoadingId,
+    isExporting,
+    handleToggleStatus,
+    handleExport,
+  } = useEntityWorkflow({
+    onRefresh: fetchBranches,
+    onError: setError,
+    toggleStatus: (id, active) => branchService.toggleBranchStatus(Number(id), active),
+    exportData: () =>
+      branchService.exportBranches({
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        search: searchTerm || undefined,
+      }),
+  });
+
+  const {
+    reviewItem: reviewBranch,
+    setReviewItem: setReviewBranch,
+    approvalAction,
+    approvalComment,
+    rejectReason,
+    approvalActionError,
+    isSubmitting: isApprovalSubmitting,
+    openApprovalAction,
+    closeApprovalAction,
+    submitApprovalAction,
+    setApprovalComment,
+    setRejectReason,
+  } = useModuleApprovalUi<Branch>({
+    onRefresh: fetchBranches,
+    onError: setError,
+    approveRequest: branchService.approveBranchRequest,
+    rejectRequest: branchService.rejectBranchRequest,
+  });
 
   useEffect(() => {
     fetchBranches();
@@ -134,12 +177,12 @@ export default function BranchManagementPage() {
     setSubmitError(null);
 
     try {
-      const response = await branchService.deleteBranch(branchToDelete.id);
+      const response = await branchService.softDeleteBranch(branchToDelete.id);
       if (response.success) {
         handleCloseDeleteModal();
         await fetchBranches();
       } else {
-        setSubmitError(response.error?.message || 'Failed to delete branch');
+        setSubmitError(response.error?.message || 'Failed to soft delete branch');
       }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -214,7 +257,7 @@ export default function BranchManagementPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Branch Management</h1>
-          <p className="mt-1 text-sm text-slate-500">View and manage your branch list.</p>
+          <p className="mt-1 text-sm text-slate-500">View, manage, export, and soft delete branches.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
@@ -225,9 +268,16 @@ export default function BranchManagementPage() {
           />
           <Button onClick={handleSearch} variant="secondary">Search</Button>
           <Button onClick={handleReset} variant="outline">Reset</Button>
-          <ActionButton type="button" action="add" onClick={handleOpenModal}>
-            Add Branch
-          </ActionButton>
+          <ExportButton
+            allowed={permissions.export}
+            onExport={handleExport}
+            isLoading={isExporting}
+          />
+          {permissions.add && (
+            <ActionButton type="button" action="add" onClick={handleOpenModal}>
+              Add Branch
+            </ActionButton>
+          )}
         </div>
       </div>
 
@@ -250,39 +300,70 @@ export default function BranchManagementPage() {
                   <th className="px-6 py-3 font-medium text-slate-700">Branch Name</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Branch Code</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Address</th>
+                  <th className="px-6 py-3 font-medium text-slate-700">Approval</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Status</th>
                   <th className="px-6 py-3 font-medium text-slate-700">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {branches.map((branch) => (
-                  <tr key={branch.id}>
+                {branches.map((branch) => {
+                  const requestId = branch.approval?.requestId;
+                  const isActive = branch.status?.toLowerCase() === 'active';
+
+                  return (
+                  <tr key={`${branch.id}-${requestId ?? 'row'}`}>
                     <td className="px-6 py-4 text-slate-900">{branch.branchName}</td>
                     <td className="px-6 py-4 text-slate-700">{branch.branchCode}</td>
                     <td className="px-6 py-4 text-slate-700">{branch.address}</td>
+                    <td className="px-6 py-4 text-slate-700">
+                      <button
+                        type="button"
+                        className="text-left disabled:cursor-default"
+                        title={getApprovalReviewButtonTitle(branch.approval)}
+                        onClick={() => setReviewBranch(branch)}
+                        disabled={!canReviewApproval(branch.approval)}
+                      >
+                        <EntityApprovalCell
+                          approval={branch.approval}
+                          isPendingCreate={branch.isPendingCreate}
+                        />
+                      </button>
+                    </td>
                     <td className="px-6 py-4 text-slate-700">{branch.status}</td>
                     <td className="px-6 py-4 text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <ActionButton
-                          type="button"
-                          action="edit"
-                          size="sm"
-                          onClick={() => handleEditBranch(branch)}
-                        >
-                          Edit
-                        </ActionButton>
-                        <ActionButton
-                          type="button"
-                          action="delete"
-                          size="sm"
-                          onClick={() => handleDeleteClick(branch)}
-                        >
-                          Delete
-                        </ActionButton>
-                      </div>
+                      <RowActions
+                        permissions={permissions}
+                        approvalStatus={branch.approvalStatus}
+                        isActive={isActive}
+                        approvalOnly={Boolean(branch.approval?.hasPending)}
+                        onEdit={branch.isPendingCreate ? undefined : () => handleEditBranch(branch)}
+                        onDelete={branch.isPendingCreate ? undefined : () => handleDeleteClick(branch)}
+                        onApprove={
+                          requestId && branch.approval?.hasPending
+                            ? () => openApprovalAction(requestId, 'approve')
+                            : undefined
+                        }
+                        onReject={
+                          requestId && branch.approval?.hasPending
+                            ? () => openApprovalAction(requestId, 'reject')
+                            : undefined
+                        }
+                        onToggleStatus={
+                          branch.isPendingCreate
+                            ? undefined
+                            : () => handleToggleStatus(branch.id, !isActive)
+                        }
+                        actionLoading={
+                          workflowLoadingId === branch.id ||
+                          (requestId != null &&
+                            isApprovalSubmitting &&
+                            approvalAction?.requestId === requestId)
+                        }
+                      />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -338,10 +419,10 @@ export default function BranchManagementPage() {
           </form>
         </Modal>
 
-        <Modal isOpen={isDeleteModalOpen} onClose={handleCloseDeleteModal} title="Delete Branch" size="sm">
+        <Modal isOpen={isDeleteModalOpen} onClose={handleCloseDeleteModal} title="Soft Delete Branch" size="sm">
           <div className="space-y-4">
             <p className="text-sm text-slate-700">
-              Are you sure you want to delete{' '}
+              Are you sure you want to soft delete{' '}
               <span className="font-semibold">{branchToDelete?.branchName}</span>?
             </p>
             {submitError ? (
@@ -385,6 +466,29 @@ export default function BranchManagementPage() {
           </div>
         </div>
       </div>
+
+      <EntityApprovalReviewModal
+        isOpen={Boolean(reviewBranch)}
+        approval={reviewBranch?.approval}
+        permissions={permissions}
+        emptyMessage="No pending approval for this branch."
+        onClose={() => setReviewBranch(null)}
+        onApprove={(requestId) => openApprovalAction(requestId, 'approve')}
+        onReject={(requestId) => openApprovalAction(requestId, 'reject')}
+      />
+
+      <UserApprovalActionModal
+        isOpen={Boolean(approvalAction)}
+        type={approvalAction?.type ?? null}
+        comment={approvalComment}
+        reason={rejectReason}
+        error={approvalActionError}
+        isSubmitting={isApprovalSubmitting}
+        onCommentChange={setApprovalComment}
+        onReasonChange={setRejectReason}
+        onClose={closeApprovalAction}
+        onSubmit={submitApprovalAction}
+      />
     </div>
   );
 }

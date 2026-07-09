@@ -10,7 +10,8 @@ export interface LoginRequest {
 export interface LoginResponse {
   accessToken: string;
   refreshToken?: string;
-  user: User;
+  expiresAt?: number;
+  user?: User;
 }
 
 export interface RegisterRequest {
@@ -20,12 +21,14 @@ export interface RegisterRequest {
 }
 
 export interface RefreshTokenRequest {
-  refreshToken: string;
+  refreshToken?: string;
+  refresh_token?: string;
 }
 
 export interface RefreshTokenResponse {
   accessToken: string;
   refreshToken?: string;
+  expiresAt?: number;
 }
 
 // User Types

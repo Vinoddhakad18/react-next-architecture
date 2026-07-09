@@ -24,7 +24,7 @@ export async function validateCsrfFromRequest(request: NextRequest): Promise<Csr
   const secret = request.cookies.get('csrf-secret')?.value;
 
   // Validate the token
-  const isValid = await validateCsrfToken(csrfTokenHeader, hashedToken, secret);
+  const isValid = await validateCsrfToken(csrfTokenHeader ?? undefined, hashedToken, secret);
 
   if (!isValid) {
     return {
@@ -52,7 +52,7 @@ export async function validateCsrfFromStandardRequest(request: Request): Promise
   const secret = cookies['csrf-secret'];
 
   // Validate the token
-  const isValid = await validateCsrfToken(csrfTokenHeader, hashedToken, secret);
+  const isValid = await validateCsrfToken(csrfTokenHeader ?? undefined, hashedToken, secret);
 
   if (!isValid) {
     return {
