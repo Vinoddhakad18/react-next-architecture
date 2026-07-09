@@ -5,8 +5,13 @@
 
 # Base stage with Node.js and pnpm
 FROM node:24-alpine AS base
-RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
-ENV PNPM_HOME=/usr/local/bin
+RUN apk add --no-cache libc6-compat
+ENV PNPM_HOME=/pnpm
+ENV PNPM_STORE_DIR=/pnpm/store
+ENV PATH="${PNPM_HOME}:${PATH}"
+RUN mkdir -p /pnpm/store \
+  && corepack enable \
+  && corepack prepare pnpm@8.15.0 --activate
 
 # Dependencies stage - Install all dependencies
 FROM base AS deps
@@ -20,7 +25,7 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY packages/utils/package.json ./packages/utils/package.json
 
-# Install dependencies
+# Install dependencies into a writable pnpm store inside the image
 RUN pnpm install --frozen-lockfile
 
 # Builder stage - Build the application
@@ -35,9 +40,7 @@ ENV NODE_ENV=${NODE_ENV}
 COPY . .
 
 # Copy node_modules from deps stage, preserving pnpm workspace structure
-# Copy root node_modules with .pnpm store
 COPY --from=deps /app/node_modules ./node_modules
-# Copy workspace-specific node_modules (symlinks to .pnpm store)
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/ui/node_modules ./packages/ui/node_modules
 COPY --from=deps /app/packages/utils/node_modules ./packages/utils/node_modules
@@ -47,20 +50,8 @@ WORKDIR /app/apps/web
 RUN pnpm build
 WORKDIR /app
 
-# Development stage - For hot-reload
-FROM base AS development
-WORKDIR /app
-
-# Copy workspace files
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
-
-# Copy package.json files from all workspaces
-COPY apps/web/package.json ./apps/web/package.json
-COPY packages/ui/package.json ./packages/ui/package.json
-COPY packages/utils/package.json ./packages/utils/package.json
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Development stage - Reuse deps (no second pnpm install)
+FROM deps AS development
 
 # Set environment for development
 ENV NODE_ENV=development
