@@ -1,10 +1,25 @@
 /**
  * Role Service
- * Handles all role-related API calls
+ * Handles role-related API calls with encrypted request/response.
  */
 
-import { apiClient, API_ENDPOINTS } from '@/lib/api';
+import { API_ENDPOINTS } from '@/lib/api';
+import {
+  buildRoleExportEncryptedQueryClient,
+  buildRoleListQueryPayload,
+} from '@/lib/api/roleEncryptedQuery';
+import {
+  encryptedDelete,
+  encryptedGet,
+  encryptedPatch,
+  encryptedPost,
+  encryptedPut,
+} from '@/lib/api/encryptedClientApi';
+import { downloadEntityExport } from '@/lib/api/entityActions';
+import { extractPagePermissions } from '@/lib/api/permissions';
+import { normalizeRole, normalizeRoleRecord } from '@/lib/roles/normalizeRole';
 import type { Role, RoleListParams, RoleListResponse } from '@/types/api';
+import type { PagePermissions } from '@/types/api';
 
 export interface CreateRoleRequest {
   name: string;
@@ -18,80 +33,231 @@ export interface UpdateRoleRequest {
   status?: boolean;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function extractRoleListItems(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!isRecord(payload)) {
+    return [];
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  const container = isRecord(payload.data) ? payload.data : payload;
+  const direct = isRecord(container)
+    ? (container.data ?? container.roles ?? container.items)
+    : container;
+
+  if (Array.isArray(direct)) {
+    return direct;
+  }
+
+  if (isRecord(direct)) {
+    const nested = direct.data ?? direct.roles ?? direct.items;
+    if (Array.isArray(nested)) {
+      return nested;
+    }
+  }
+
+  return [];
+}
+
+export function normalizeRoleListPayload(
+  payload: unknown,
+  page = 1,
+  limit = 10
+): RoleListResponse & { permissions?: PagePermissions } {
+  const roleItems = extractRoleListItems(payload);
+
+  const normalizedRoles = roleItems.map((role) =>
+    normalizeRole(role as Record<string, unknown>)
+  );
+
+  let paginationSource: Record<string, unknown> | null = null;
+  if (isRecord(payload)) {
+    const container = isRecord(payload.data) && !Array.isArray(payload.data) ? payload.data : payload;
+    if (isRecord(container)) {
+      paginationSource = (isRecord(container.pagination)
+        ? container.pagination
+        : isRecord(container.meta)
+          ? container.meta
+          : null) as Record<string, unknown> | null;
+    }
+  }
+
+  const pagination = paginationSource ?? {
+    total: normalizedRoles.length,
+    page,
+    limit,
+    totalPages: 1,
+  };
+
+  const permissions = isRecord(payload) ? extractPagePermissions(payload) : undefined;
+
+  return withListPermissions(
+    {
+      data: normalizedRoles,
+      meta: {
+        total: Number(
+          pagination.total_records ?? pagination.total ?? normalizedRoles.length
+        ),
+        page: Number(pagination.page ?? page),
+        limit: Number(pagination.per_page ?? pagination.limit ?? limit),
+        totalPages: Number(pagination.total_pages ?? pagination.totalPages ?? 1),
+      },
+    },
+    permissions
+  );
+}
+
 export const roleService = {
-  /**
-   * Get list of roles with pagination and sorting
-   */
   async getRoles(params?: RoleListParams) {
-    const queryParams = new URLSearchParams();
+    const response = await encryptedGet<RoleListResponse & { permissions?: PagePermissions }>(
+      API_ENDPOINTS.ROLES.LIST,
+      { queryParams: buildRoleListQueryPayload(params) || undefined }
+    );
 
-    if (params?.page) {
-      queryParams.append('page', params.page.toString());
-    }
-    if (params?.limit) {
-      queryParams.append('limit', params.limit.toString());
-    }
-    if (params?.sortBy) {
-      queryParams.append('sortBy', params.sortBy);
-    }
-    if (params?.sortOrder) {
-      queryParams.append('sortOrder', params.sortOrder);
-    }
-    if (params?.search) {
-      queryParams.append('search', params.search);
-    }
-    if (params?.isActive !== undefined) {
-      queryParams.append('isActive', params.isActive.toString());
+    if (response.success && response.data) {
+      return {
+        ...response,
+        data: normalizeRoleListPayload(
+          response.data,
+          params?.page ?? 1,
+          params?.limit ?? 10
+        ),
+      };
     }
 
-    const endpoint = `${API_ENDPOINTS.ROLES.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-
-    return apiClient.get<RoleListResponse>(endpoint, { auth: true });
+    return response;
   },
 
-  /**
-   * Get list of active roles
-   */
   async getActiveRoles() {
-    return apiClient.get<{ data: Role[] } | Role[]>(API_ENDPOINTS.ROLES.ACTIVE_LIST, { auth: true });
+    const response = await encryptedGet<{ data: Role[] } | Role[]>(
+      API_ENDPOINTS.ROLES.ACTIVE_LIST,
+      { queryParams: {} }
+    );
+
+    if (!response.success || !response.data) {
+      return response;
+    }
+
+    const payload = response.data;
+    const items = Array.isArray(payload)
+      ? payload
+      : Array.isArray((payload as { data?: Role[] }).data)
+        ? (payload as { data: Role[] }).data
+        : [];
+
+    return {
+      ...response,
+      data: items.map((role) =>
+        normalizeRole(role as unknown as Record<string, unknown>)
+      ),
+    };
   },
 
-  /**
-   * Create a new role
-   */
   async createRole(role: CreateRoleRequest) {
-    return apiClient.post<Role, CreateRoleRequest>(
+    const response = await encryptedPost<Role, Record<string, unknown>>(
       API_ENDPOINTS.ROLES.CREATE,
-      role,
-      { auth: true }
+      {
+        name: role.name,
+        ...(role.description !== undefined ? { description: role.description } : {}),
+        is_active: role.status,
+      }
     );
+
+    if (response.success && isRecord(response.data)) {
+      return { ...response, data: normalizeRoleRecord(response.data) as unknown as Role };
+    }
+
+    return response;
   },
 
-  /**
-   * Get a single role by ID
-   */
   async getRole(id: number) {
-    return apiClient.get<Role>(API_ENDPOINTS.ROLES.GET(id), { auth: true });
+    const response = await encryptedGet<Role>(API_ENDPOINTS.ROLES.GET(id));
+
+    if (response.success && isRecord(response.data)) {
+      return { ...response, data: normalizeRoleRecord(response.data) as unknown as Role };
+    }
+
+    return response;
   },
 
-  /**
-   * Update an existing role
-   */
   async updateRole(id: number, role: UpdateRoleRequest) {
-    return apiClient.put<Role, UpdateRoleRequest>(
+    const response = await encryptedPut<Role, Record<string, unknown>>(
       API_ENDPOINTS.ROLES.UPDATE(id),
-      role,
-      { auth: true }
+      {
+        ...(role.name !== undefined ? { name: role.name } : {}),
+        ...(role.description !== undefined ? { description: role.description } : {}),
+        ...(role.status !== undefined ? { is_active: role.status } : {}),
+      }
     );
+
+    if (response.success && isRecord(response.data)) {
+      return { ...response, data: normalizeRoleRecord(response.data) as unknown as Role };
+    }
+
+    return response;
   },
 
-  /**
-   * Delete a role
-   */
   async deleteRole(id: number) {
-    return apiClient.delete<void>(API_ENDPOINTS.ROLES.DELETE(id), { auth: true });
+    return encryptedDelete<void>(API_ENDPOINTS.ROLES.DELETE(id));
+  },
+
+  async approveRoleRequest(requestId: number, comment: string) {
+    const response = await encryptedPost<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.ROLES.APPROVAL_APPROVE(requestId),
+      { comment: comment.trim() }
+    );
+    return { success: response.success, error: response.error };
+  },
+
+  async rejectRoleRequest(requestId: number, reason: string) {
+    const response = await encryptedPost<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.ROLES.APPROVAL_REJECT(requestId),
+      { reason: reason.trim() }
+    );
+    return { success: response.success, error: response.error };
+  },
+
+  async toggleRoleStatus(id: number, active: boolean) {
+    const response = await encryptedPatch<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.ROLES.STATUS(id),
+      { status: active ? 'active' : 'inactive' }
+    );
+    return { success: response.success, error: response.error };
+  },
+
+  async exportRoles(params?: Pick<RoleListParams, 'sortBy' | 'sortOrder' | 'search' | 'isActive'>) {
+    const encryptedQuery = buildRoleExportEncryptedQueryClient({
+      sortBy: params?.sortBy ?? 'id',
+      sortOrder: params?.sortOrder,
+      search: params?.search,
+      isActive: params?.isActive,
+    });
+
+    return downloadEntityExport(
+      `${API_ENDPOINTS.ROLES.EXPORT}${encryptedQuery}`,
+      'roles-export.xlsx',
+      {
+        accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }
+    );
   },
 };
 
+export { normalizeRole } from '@/lib/roles/normalizeRole';
 
-
+export function withListPermissions<T extends Record<string, unknown>>(
+  payload: T,
+  permissions?: PagePermissions
+): T & { permissions?: PagePermissions } {
+  return permissions ? { ...payload, permissions } : payload;
+}

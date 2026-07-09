@@ -7,7 +7,7 @@ export const ROUTES = {
   HOME: '/',
 
   // Auth routes
-  LOGIN: '/admin/login',
+  LOGIN: '/login',
   REGISTER: '/register',
   FORGOT_PASSWORD: '/forgot-password',
   RESET_PASSWORD: '/reset-password',

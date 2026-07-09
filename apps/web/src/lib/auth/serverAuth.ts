@@ -37,8 +37,8 @@ export async function requireServerAuth(redirectTo?: string): Promise<string> {
 
   if (!token) {
     const loginPath = redirectTo
-      ? `/admin/login?redirect=${encodeURIComponent(redirectTo)}`
-      : '/admin/login';
+      ? `/login?redirect=${encodeURIComponent(redirectTo)}`
+      : '/login';
     redirect(loginPath);
   }
 

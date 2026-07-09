@@ -25,12 +25,6 @@ function extractMenuTree(responseData: unknown): Menu[] {
   return [];
 }
 
-const MenuIcon = (
-  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-  </svg>
-);
-
 const ChevronIcon = ({ open }: { open: boolean }) => (
   <svg
     className={`w-4 h-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
@@ -86,7 +80,7 @@ function MenuList({ items, pathname, depth = 0 }: { items: Menu[]; pathname: str
                 style={{ paddingLeft }}
               >
                 <span className="flex items-center space-x-3 min-w-0">
-                  {MenuIcon}
+                 
                   <span className="font-medium truncate">{item.name}</span>
                 </span>
                 <ChevronIcon open={isOpen} />
@@ -113,7 +107,7 @@ function MenuList({ items, pathname, depth = 0 }: { items: Menu[]; pathname: str
             style={{ paddingLeft }}
             aria-current={isActive ? 'page' : undefined}
           >
-            {MenuIcon}
+          
             <span className="font-medium truncate">{item.name}</span>
           </Link>
         );

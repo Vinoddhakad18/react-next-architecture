@@ -31,7 +31,7 @@ const envSchema = z.object({
 export const env = envSchema.parse({
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
-  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  NEXT_PUBLIC_API_URL: process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL,
   JWT_SECRET: process.env.JWT_SECRET,
 });
 

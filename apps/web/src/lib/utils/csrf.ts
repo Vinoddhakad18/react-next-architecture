@@ -92,7 +92,7 @@ export function getCsrfTokenFromCookie(): string | null {
   const cookies = document.cookie.split(';');
   for (const cookie of cookies) {
     const [name, value] = cookie.trim().split('=');
-    if (name === 'csrf-token') {
+    if (name === 'csrf-token' && value !== undefined) {
       return decodeURIComponent(value);
     }
   }

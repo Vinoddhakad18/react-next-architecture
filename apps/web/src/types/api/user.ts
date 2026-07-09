@@ -2,12 +2,47 @@
  * User API Types
  */
 
+import type { ApprovalStatus } from './common';
+import type { PagePermissions } from './permission';
+
+import type { ApprovalActionBy } from './approval';
+
+/** Nested approval payload returned on each user in the list API. */
+export interface UserApprovalInfo {
+  hasPending: boolean;
+  hasRejected?: boolean;
+  requestId?: number;
+  requestNo?: string;
+  action?: string;
+  status?: string;
+  rejectionReason?: string;
+  actionBy?: ApprovalActionBy;
+  makerId?: number;
+  makerName?: string;
+  makerEmail?: string;
+  submittedAt?: string;
+  changedFields?: string[];
+  proposedData?: Record<string, unknown>;
+  previousData?: Record<string, unknown>;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: string;
+  roleName?: string;
   status: string;
+  approvalStatus?: ApprovalStatus;
+  approval?: UserApprovalInfo;
+  /** True when this row is a pending CREATE approval (from pendingCreates). */
+  isPendingCreate?: boolean;
+  mobile?: string;
+  roleId?: number;
+  branchId?: number;
+  branchName?: string;
+  branchIds?: number[];
+  branches?: unknown[];
   createdAt: string;
   updatedAt: string;
 }
@@ -20,19 +55,44 @@ export interface UserListParams {
   search?: string;
 }
 
+export interface UserListMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface UserListResponse {
   data: User[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+  pendingCreates?: User[];
+  meta: UserListMeta;
+  permissions?: PagePermissions;
+}
+
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  password: string;
+  mobile: string;
+  roleId: number;
+  branchIds: number[];
 }
 
 export interface UpdateUserRequest {
   name?: string;
   email?: string;
-  role?: string;
-  status?: string;
+  password?: string;
+  mobile?: string;
+  roleId?: number;
+  branchIds?: number[];
+}
+
+/** Body for POST /users/approvals/{requestId}/approve */
+export interface UserApprovalApproveRequest {
+  comment: string;
+}
+
+/** Body for POST /users/approvals/{requestId}/reject */
+export interface UserApprovalRejectRequest {
+  reason: string;
 }

@@ -6,7 +6,7 @@
 import { cn } from '@/lib/utils/cn';
 import { HTMLAttributes, ReactNode, useEffect } from 'react';
 
-export interface ModalProps extends HTMLAttributes<HTMLDivElement> {
+export interface ModalProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
   isOpen: boolean;
   onClose: () => void;
   title?: string | ReactNode;

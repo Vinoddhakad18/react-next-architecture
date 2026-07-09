@@ -2,12 +2,28 @@
  * Branch API Types
  */
 
+import type { ApprovalStatus } from './common';
+import type { EntityApprovalInfo } from './approval';
+
 export interface Branch {
   id: number;
   branchName: string;
   branchCode: string;
   address: string;
   status: string;
+  approvalStatus?: ApprovalStatus;
+  approval?: EntityApprovalInfo;
+  isPendingCreate?: boolean;
+}
+
+export interface BranchTreeNode {
+  id: number;
+  branchName: string;
+  branchCode: string;
+  address: string;
+  parentId: number | null;
+  status: string;
+  children: BranchTreeNode[];
 }
 
 export interface BranchListParams {

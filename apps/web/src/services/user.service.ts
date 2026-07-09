@@ -1,47 +1,123 @@
 /**
  * User Service
- * Handles user listing, updating and soft delete operations.
+ * Handles user listing, updating and soft delete with encrypted request/response.
  */
 
-import { apiClient, API_ENDPOINTS } from '@/lib/api';
-import type { User, UserListParams, UserListResponse, UpdateUserRequest } from '@/types/api/user';
+import { API_ENDPOINTS } from '@/lib/api';
+import {
+  buildUserExportEncryptedQueryClient,
+  buildUserListQueryPayload,
+} from '@/lib/api/userEncryptedQuery';
+import {
+  encryptedDelete,
+  encryptedGet,
+  encryptedPatch,
+  encryptedPost,
+  encryptedPut,
+} from '@/lib/api/encryptedClientApi';
+import { downloadEntityExport } from '@/lib/api/entityActions';
+import { toSnakeCaseKeys } from '@/lib/api/snakeCase';
+import { parseUserListResponse } from '@/lib/users/parseUserListResponse';
+import { normalizeUser } from '@/lib/utils/normalizeUser';
+import type { User, UserListParams, UserListResponse, CreateUserRequest, UpdateUserRequest } from '@/types/api/user';
+import type { ApiResponse } from '@/types/api';
+
+export { normalizeUser } from '@/lib/utils/normalizeUser';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 export const userService = {
-  async getUsers(params?: UserListParams) {
-    const queryParams = new URLSearchParams();
+  async createUser(user: CreateUserRequest) {
+    const response = await encryptedPost<User, Record<string, unknown>>(
+      API_ENDPOINTS.USERS.CREATE,
+      toSnakeCaseKeys(user)
+    );
 
-    if (params?.page) {
-      queryParams.append('page', params.page.toString());
-    }
-    if (params?.limit) {
-      queryParams.append('limit', params.limit.toString());
-    }
-    if (params?.sortBy) {
-      queryParams.append('sortBy', params.sortBy);
-    }
-    if (params?.sortOrder) {
-      queryParams.append('sortOrder', params.sortOrder);
-    }
-    if (params?.search) {
-      queryParams.append('search', params.search);
+    if (response.success && isRecord(response.data)) {
+      return { ...response, data: normalizeUser(response.data) };
     }
 
-    const endpoint = `${API_ENDPOINTS.USERS.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    return apiClient.get<UserListResponse>(endpoint, { auth: true });
+    return response;
+  },
+
+  async getUsers(params?: UserListParams): Promise<ApiResponse<UserListResponse>> {
+    const response = await encryptedGet<unknown>(API_ENDPOINTS.USERS.LIST, {
+      queryParams: buildUserListQueryPayload(params) || undefined,
+    });
+
+    if (!response.success || response.data == null) {
+      return response as ApiResponse<UserListResponse>;
+    }
+
+    return {
+      success: true,
+      error: null,
+      data: parseUserListResponse(response.data),
+    };
   },
 
   async updateUser(id: string, user: UpdateUserRequest) {
-    return apiClient.put<User, UpdateUserRequest>(
+    const response = await encryptedPut<User, Record<string, unknown>>(
       API_ENDPOINTS.USERS.UPDATE(id),
-      user,
-      { auth: true }
+      toSnakeCaseKeys(user)
+    );
+
+    if (response.success && isRecord(response.data)) {
+      return { ...response, data: normalizeUser(response.data) };
+    }
+
+    return response;
+  },
+
+  async softDeleteUser(id: string) {
+    return encryptedDelete<{ success: boolean; message?: string }>(
+      API_ENDPOINTS.USERS.SOFT_DELETE(id)
     );
   },
 
   async deleteUser(id: string) {
-    return apiClient.delete<{ success: boolean; message?: string }>(
-      API_ENDPOINTS.USERS.DELETE(id),
-      { auth: true }
+    return this.softDeleteUser(id);
+  },
+
+  async approveUserRequest(requestId: number, comment: string) {
+    const response = await encryptedPost<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.USERS.APPROVAL_APPROVE(requestId),
+      { comment: comment.trim() }
+    );
+    return { success: response.success, error: response.error };
+  },
+
+  async rejectUserRequest(requestId: number, reason: string) {
+    const response = await encryptedPost<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.USERS.APPROVAL_REJECT(requestId),
+      { reason: reason.trim() }
+    );
+    return { success: response.success, error: response.error };
+  },
+
+  async toggleUserStatus(id: string, active: boolean) {
+    const response = await encryptedPatch<{ success?: boolean; message?: string }>(
+      API_ENDPOINTS.USERS.STATUS(id),
+      { status: active ? 'active' : 'inactive' }
+    );
+    return { success: response.success, error: response.error };
+  },
+
+  async exportUsers(params?: Pick<UserListParams, 'sortBy' | 'sortOrder' | 'search'>) {
+    const encryptedQuery = buildUserExportEncryptedQueryClient({
+      sortBy: params?.sortBy ?? 'name',
+      sortOrder: params?.sortOrder,
+      search: params?.search,
+    });
+
+    return downloadEntityExport(
+      `${API_ENDPOINTS.USERS.EXPORT}${encryptedQuery}`,
+      'users-export.xlsx',
+      {
+        accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }
     );
   },
 };
