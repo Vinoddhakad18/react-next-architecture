@@ -4,7 +4,19 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { menuService } from '@/services';
+import { getAccessTokenName, getAccessTokenEmail } from '@/lib/auth/getAccessTokenClaims';
 import type { Menu } from '@/types/api/menu';
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return 'U';
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
 function extractMenuTree(responseData: unknown): Menu[] {
   if (Array.isArray(responseData)) {
@@ -121,6 +133,13 @@ export default function Sidebar() {
   const [menus, setMenus] = useState<Menu[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+
+  useEffect(() => {
+    setUserName(getAccessTokenName() ?? '');
+    setUserEmail(getAccessTokenEmail() ?? '');
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -179,11 +198,11 @@ export default function Sidebar() {
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
         <div className="flex items-center space-x-3 px-3 py-2">
           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-            <span className="text-white font-semibold">AD</span>
+            <span className="text-white font-semibold">{userName ? getInitials(userName) : 'U'}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">Admin User</p>
-            <p className="text-xs text-slate-400 truncate">admin@example.com</p>
+            <p className="text-sm font-medium text-white truncate">{userName || 'User'}</p>
+            <p className="text-xs text-slate-400 truncate">{userEmail}</p>
           </div>
         </div>
       </div>
